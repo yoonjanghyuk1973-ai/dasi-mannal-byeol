@@ -54,7 +54,7 @@ const jo=(w,a,b)=>{const c=(w||'').charCodeAt(w.length-1);return w+((c>=0xAC00&&
 const emo=s=>({'강아지':'🐶','고양이':'🐱','토끼':'🐰','햄스터':'🐹','새':'🐦'}[s]||'🐾');
 const fmt=d=>d?d.replace(/-/g,'.'):'';const ago=t=>new Date(t*1000).toLocaleDateString('ko-KR');
 async function home(){const ps=await api('/api/pets');app.innerHTML=`<div class="live"><span class="dot"></span>지금 <b id="onl">${LIVE.online||1}</b>명이 함께 있어요</div><div class="ticker"><span id="tk">별빛을 기다리고 있어요 ✦</span></div><div class="herobox"><div style="font-size:30px">🌙✨🐾</div><h2>별이 된 우리 아이와<br>함께 걷는 영상을 간직하세요</h2><p>사진 한 장으로 별빛 길을 함께 걷고, 마지막엔 꼭 안아주는 10초 영상을 만들어 드려요.</p></div><div class="center"><a class="btn" href="#/new">＋ 별자리 만들기</a></div>
-<div class="grid">${ps.map(p=>`<div class="locker" onclick="go('#/pet/${p.id}')"><span class="no">별자리 No.${String(p.id).padStart(3,'0')}</span>${p.example?'<span class="tag">예시</span>':''}
+${ps.length?'':`<div class="card center" style="padding:28px 16px"><div style="font-size:40px">🌌</div><h3>아직 밤하늘에 별자리가 없어요</h3><p>첫 번째 별자리를 만들어 우리 아이를 기억해 주세요.</p><a class="btn" href="#/new">✨ 별자리 만들기</a></div>`}<div class="grid">${ps.map(p=>`<div class="locker" onclick="go('#/pet/${p.id}')"><span class="no">별자리 No.${String(p.id).padStart(3,'0')}</span>${p.example?'<span class="tag">예시</span>':''}
 ${p.photo?`<img src="${p.photo}" alt="">`:`<div class="ph">${emo(p.species)}</div>`}<b>${esc(p.name)}</b><small>${fmt(p.birth)}${p.birth||p.passed?' ~ ':''}${fmt(p.passed)}</small><br><small>🕯 ${p.candles}</small></div>`).join('')}</div>`}
 function form(E){app.innerHTML=`<div class="card"><h2 style="margin:0">${E?'별자리 수정하기':'별자리 만들기'}</h2>
 <label>아이 이름 *</label><input id="f_name" maxlength="40" placeholder="예: 콩이">
@@ -113,7 +113,7 @@ async function makeVideo(p,style,photo){const b=$('#mkv');b.disabled=1;b.style.o
 $('#vnew').innerHTML=`<div class="prog"><div class="orb">🌟🐾</div><b style="color:#ffe6a8">${style==='play'?'사진 속 아이를 깨우고 있어요':'별길을 만들고 있어요'}</b><div style="font-size:13px;opacity:.75;margin-top:6px">${esc(p.name)}와(과) 걸을 별빛 길을 깔고 있어요. 잠시만 기다려 주세요.</div><div class="bar"><i></i></div></div>`;
 $('#vcard').scrollIntoView({behavior:'smooth'});const j=await api(`/api/pets/${p.id}/videos`,{style,photo,cid:CID});if(j.error){$('#vnew').innerHTML=`<p class="err">${j.error}</p>`;b.disabled=0;b.style.opacity=1;return}
 const poll=async()=>{const v=await api('/api/videos/'+j.id);if(v.status==='running')return setTimeout(poll,2500);b.disabled=0;b.style.opacity=1;
-if(v.status==='error'){b.disabled=0;$('#vnew').innerHTML=`<p class="err">영상을 만들지 못했어요. 다시 시도해 주세요.</p>`;return}$('#vnew').innerHTML='';$('#vlist').insertAdjacentHTML('afterbegin',vhtml(v,p.name));p.gen_left=0;b.textContent='무료 미리보기를 사용했어요';b.disabled=1;b.style.opacity=.5$('#vlist video').play().catch(()=>{})};poll()}
+if(v.status==='error'){b.disabled=0;$('#vnew').innerHTML=`<p class="err">영상을 만들지 못했어요. 다시 시도해 주세요.</p>`;return}$('#vnew').innerHTML='';$('#vlist').insertAdjacentHTML('afterbegin',vhtml(v,p.name));p.gen_left=0;b.textContent='무료 미리보기를 사용했어요';b.disabled=1;b.style.opacity=.5;$('#vlist video').play().catch(()=>{})};poll()}
 
 let MINE=JSON.parse(localStorage.mine||'[]'),LIVE={};const CID=localStorage.cid||(localStorage.cid=Math.random().toString(36).slice(2));
 const ago2=t=>{const d=Date.now()/1000-t;return d<60?'방금':d<3600?Math.floor(d/60)+'분 전':d<86400?Math.floor(d/3600)+'시간 전':ago(t)};
