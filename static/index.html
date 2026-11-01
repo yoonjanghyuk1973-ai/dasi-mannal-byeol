@@ -55,7 +55,7 @@ footer{max-width:560px;margin:0 auto;padding:0 18px 100px;font-size:11px;line-he
 .av .eg{position:absolute;top:-4px;right:0;font-size:9px;background:#ffe6a8;color:#3a2d00;border-radius:7px;padding:0 4px}
 </style>
 </head><body><canvas id="sky"></canvas>
-<header><h1 onclick="go('#/')">✦ 다시만날별 ✦</h1><p>별이 된 아이를 기억하는 작은 별자리</p></header><main id="app"></main><footer>🛡 데이터 안심 약속 · 올려주신 사진과 글은 관리 키로 언제든 통째로 내려받을 수 있어요. 서비스를 종료하게 되더라도 충분한 기간 전에 미리 알려드리고 내려받을 시간을 드릴게요.</footer><nav class="tabs"><a href="#/" data-t="home"><b>✨</b>별자리</a><a href="#/memories" data-t="memories"><b>📷</b>추억</a><a href="#/comfort" data-t="comfort"><b>🤍</b>위로</a><a href="#/mine" data-t="mine"><b>🐾</b>내 아이</a></nav>
+<header><h1 onclick="go('#/')">✦ 다시만날별 ✦</h1><p>아이가 행복하게 뛰어놀던 모습을 다시 만나는 곳</p></header><main id="app"></main><footer>🛡 데이터 안심 약속 · 올려주신 사진과 글은 관리 키로 언제든 통째로 내려받을 수 있어요. 서비스를 종료하게 되더라도 충분한 기간 전에 미리 알려드리고 내려받을 시간을 드릴게요.</footer><nav class="tabs"><a href="#/" data-t="home"><b>✨</b>별자리</a><a href="#/memories" data-t="memories"><b>📷</b>추억</a><a href="#/comfort" data-t="comfort"><b>🤍</b>위로</a><a href="#/mine" data-t="mine"><b>🐾</b>내 아이</a></nav>
 <script>
 const $=s=>document.querySelector(s),app=$('#app'),esc=s=>(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const go=h=>location.hash=h;let KEYS=JSON.parse(localStorage.keys||'{}');const kOf=u=>{const m=u.match(/\/api\/pets\/(\d+)/);return m&&KEYS[m[1]]};
@@ -64,7 +64,7 @@ const saveKey=(id,k)=>{KEYS[id]=k;localStorage.keys=JSON.stringify(KEYS);if(!MIN
 const jo=(w,a,b)=>{const c=(w||'').charCodeAt(w.length-1);return w+((c>=0xAC00&&c<=0xD7A3&&(c-0xAC00)%28)?a:b)};
 const emo=s=>({'강아지':'🐶','고양이':'🐱','토끼':'🐰','햄스터':'🐹','새':'🐦'}[s]||'🐾');
 const fmt=d=>d?d.replace(/-/g,'.'):'';const ago=t=>new Date(t*1000).toLocaleDateString('ko-KR');
-async function home(){const ps=await api('/api/pets');app.innerHTML=`<div class="live"><span class="dot"></span>지금 <b id="onl">${LIVE.online||1}</b>명이 함께 있어요</div><div class="ticker"><span id="tk">별빛을 기다리고 있어요 ✦</span></div><div id="plaza" class="plaza"></div><div class="herobox"><div style="font-size:30px">🌙✨🐾</div><h2>별이 된 우리 아이와<br>함께 걷는 영상을 간직하세요</h2><p>사진 한 장으로 별빛 길을 함께 걷고, 마지막엔 꼭 안아주는 10초 영상을 만들어 드려요.</p></div><div class="center"><a class="btn" href="#/new">＋ 별자리 만들기</a></div>
+async function home(){const ps=await api('/api/pets');app.innerHTML=`<div class="live"><span class="dot"></span>지금 <b id="onl">${LIVE.online||1}</b>명이 함께 있어요</div><div class="ticker"><span id="tk">별빛을 기다리고 있어요 ✦</span></div><div id="plaza" class="plaza"></div><div class="herobox"><div style="font-size:30px">🌙✨🐾</div><h2>우리 아이의 가장 행복했던 순간을<br>다시 만나요</h2><p>사진 한 장이면, 아이가 신나게 뛰놀다 품에 쏙 안기는 10초 영상이 돼요.</p></div><div class="center"><a class="btn" href="#/new">＋ 별자리 만들기</a><p style="font-size:13px;opacity:.8;margin:8px 0 0">슬픈 기억을 다시 보는 게 아니라,<br>우리 아이의 가장 행복했던 순간을 다시 만나요 🐾</p></div>
 ${ps.length?'':`<div class="card center" style="padding:28px 16px"><div style="font-size:40px">🌌</div><h3>아직 밤하늘에 별자리가 없어요</h3><p>첫 번째 별자리를 만들어 우리 아이를 기억해 주세요.</p><a class="btn" href="#/new">✨ 별자리 만들기</a></div>`}<div class="grid">${ps.map(p=>`<div class="locker" onclick="go('#/pet/${p.id}')"><span class="no">별자리 No.${String(p.id).padStart(3,'0')}</span>${p.example?'<span class="tag">예시</span>':''}
 ${p.photo?`<img src="${p.photo}" alt="">`:`<div class="ph">${emo(p.species)}</div>`}<b>${esc(p.name)}</b><small>${fmt(p.birth)}${p.birth||p.passed?' ~ ':''}${fmt(p.passed)}</small><br><small>🕯 ${p.candles}</small></div>`).join('')}</div>`;plaza(ps)}
 function form(E){app.innerHTML=`<div class="card"><h2 style="margin:0">${E?'별자리 수정하기':'별자리 만들기'}</h2>
@@ -96,12 +96,12 @@ if(p.error){app.innerHTML='<p class="center">별자리를 찾을 수 없어요.<
 app.innerHTML=`<a href="#/" class="btn ghost">← 별자리 목록</a><div class="card center">${p.example?'<small class="tag" style="color:#ffe6a8">예시 별자리입니다</small>':''}
 ${p.photo?`<img class="hero" src="${p.photo}">`:`<div class="ph hero" style="font-size:90px">${emo(p.species)}</div>`}<h2 style="margin:12px 0 4px">${esc(p.name)} ${emo(p.species)}</h2>
 <div style="color:#ffe6a8;font-size:13px">✦ ${esc(p.name)}의 별자리 ✦</div><small>${fmt(p.birth)} ~ ${fmt(p.passed)}</small>${p.visibility!=='public'?`<div><span class="badge">${p.visibility==='link'?'🔗 링크공개':'🔒 비공개'}</span></div>`:''}${annivHtml(p)}<button class="btn candle" id="cd">🕯 별빛 밝히기 · <span id="cn">${p.candles}</span></button>
-${ritualHtml(p)}<div class="vpick"><div class="vt">🎬 함께하는 영상 만들기</div>
-<label class="opt"><input type="radio" name="vs" value="play" checked><span><b>📸 사진 속에서 놀기 <em>추천</em></b><small>사진 그대로의 배경에서 아이가 다시 뛰놀고, 보호자의 손이 다가가 함께 놀고 꼭 안아줘요</small></span></label>
-<label class="opt"><input type="radio" name="vs" value="walk"><span><b>🌙 별길 산책</b><small>밤하늘 별빛 길을 함께 걷다가 마지막에 꼭 안아줘요</small></span></label>
+${ritualHtml(p)}<div class="vpick"><div class="vt">🎬 신나게 뛰노는 모습 다시 보기</div>
+<label class="opt"><input type="radio" name="vs" value="play" checked><span><b>📸 사진 속에서 놀기 <em>추천</em></b><small>익숙한 그 자리에서 아이가 꼬리 치며 신나게 뛰놀고, 마지막엔 품에 꼭 안겨요</small></span></label>
+<label class="opt"><input type="radio" name="vs" value="walk"><span><b>🌙 별길 산책</b><small>반짝이는 별빛 길을 함께 즐겁게 걷다가 꼭 안아줘요</small></span></label>
 <div id="srcbox"><div style="display:flex;gap:10px;align-items:center;margin-top:10px"><img id="vsrc" src="${p.photo||''}" style="width:64px;height:64px;object-fit:cover;border-radius:10px;background:#151a40;${p.photo?'':'display:none'}">
 <label class="btn ghost" style="margin:0;padding:9px 12px;font-size:13px;color:#ffe6a8">사진 바꾸기<input type="file" id="vfile" accept="image/*" hidden></label></div><small style="opacity:.65;display:block;margin-top:4px">이 사진이 영상의 첫 장면이 돼요 (기본: 추모 사진)</small></div>
-<button class="btn vbtn candle" id="mkv" ${p.gen_left?'':'disabled style="opacity:.5"'}>${p.gen_left?'✨ 무료 미리보기 1회':'무료 미리보기를 사용했어요'}</button><div style="font-size:12px;opacity:.7;margin-top:6px">약 10초 · 세로 9:16 · 별자리마다 워터마크가 있는 저화질 미리보기 1회 무료 · 고화질 원본은 3,900원 (준비 중)</div></div>
+<button class="btn vbtn candle" id="mkv" ${p.gen_left?'':'disabled style="opacity:.5"'}>${p.gen_left?'✨ 뛰노는 모습 무료로 미리 보기':'무료 미리보기를 사용했어요'}</button><div style="font-size:12px;opacity:.7;margin-top:6px">약 10초 · 세로 9:16 · 별자리마다 워터마크가 있는 저화질 미리보기 1회 무료 · 고화질 원본은 3,900원 (준비 중)</div></div>
 <button class="btn ghost candle" onclick="walk(${p.id})">✨ ${esc(jo(p.name,"과","와"))} 별 산책하기</button></div>
 <div class="card" id="vcard" ${p.videos.length?'':'style="display:none"'}><h3 style="margin-top:0">🎞 함께 걷는 영상</h3><div id="vnew"></div><div id="vlist">${p.videos.map(v=>vhtml(v,p.name)).join('')}</div></div>
 ${p.letter?`<div class="card"><h3 style="margin-top:0">💌 ${esc(p.owner||'보호자')}의 편지</h3><div class="letter">${esc(p.letter)}</div></div>`:''}
