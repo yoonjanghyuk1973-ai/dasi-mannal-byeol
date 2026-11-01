@@ -15,6 +15,18 @@ def save_photo(data):
     ext=m.group(1).replace('jpeg','jpg'); raw=base64.b64decode(m.group(2))
     if len(raw)>8_000_000: return ''
     fn=uuid.uuid4().hex+'.'+ext; open(os.path.join(D,'uploads',fn),'wb').write(raw); return '/uploads/'+fn
+with db() as c:  # 예시 별자리 시드 (비어 있을 때만)
+    if not c.execute('select count(*) from pets').fetchone()[0]:
+        now=time.time()
+        for n,sp,b,ps,ph,lt,ow,cd in [('[예시] 콩이','강아지','2012-03-14','2025-09-02','kongi','콩이야, 산책길마다 네 발자국이 생각나. 별에서는 마음껏 뛰어놀아.','콩이 누나',27),
+            ('[예시] 나비','고양이','2010-06-01','2025-05-20','nabi','나비야, 아침 햇살 자리는 아직 네 자리야. 고마웠어.','집사',19),
+            ('[예시] 솜이','토끼','2018-04-10','2025-11-30','somi','솜이야, 작은 몸으로 큰 행복을 줘서 고마워.','엄마',12),
+            ('[예시] 두부','강아지','2011-01-22','2026-02-14','dubu','두부야, 꼬리 흔들며 반겨주던 현관이 아직 따뜻해.','두부 아빠',15),
+            ('[예시] 미미','고양이','2013-08-08','2026-06-03','mimi','미미야, 골골송이 그리운 밤이야. 별에서 편히 쉬어.','미미 언니',9),
+            ('[예시] 보리','강아지','2009-10-05','2025-12-24','bori','보리야, 함께한 16년 모두 선물이었어.','보리네 가족',22)]:
+            pid=c.execute('insert into pets(name,species,birth,passed,photo,letter,owner,candles,example,created) values(?,?,?,?,?,?,?,?,1,?)',(n,sp,b,ps,'/static/samples/pet_'+ph+'.jpg',lt,ow,cd,now)).lastrowid
+            for a,t in [('[예시] 별지기','좋은 곳에서 편히 쉬렴 🌟'),('[예시] 지나가던 집사','따뜻한 기억 나눠주셔서 고마워요 🤍')]:
+                c.execute('insert into comments(pet_id,author,body,created) values(?,?,?,?)',(pid,a,t,now-600))
 import threading, shutil, urllib.request, urllib.error, io
 PROMPT=("Vertical 9:16 dreamy night scene, about 10 seconds. The pet from the photo walks happily beside its owner "
  "along a softly glowing path of golden stars across a night sky, gentle sparkles and moonlight, warm and peaceful. "
@@ -140,7 +152,7 @@ class H(http.server.SimpleHTTPRequestHandler):
                 if not r: return s.js({'error':'없음'},404)
                 if not s.can_view(r): return s.js({'error':'비공개 별자리예요','private':1},403)
                 o=dict(r); o['is_owner']=bool(s.key()) and secrets.compare_digest(s.key(),r['ekey']); o.pop('ekey')
-                o['gen_left']=max(0,FREE_GEN-c.execute("select count(*) from videos where pet_id=? and status!='error' and (preview is not null or status='running')",(m[1],)).fetchone()[0]); o['videos']=[dict(x) for x in c.execute("select * from videos where pet_id=? and status='done' order by id desc",(m[1],))]; o['comments']=[dict(x) for x in c.execute('select * from comments where pet_id=? order by id desc',(m[1],))]
+                o['gen_left']=0 if o.get('example') else max(0,FREE_GEN-c.execute("select count(*) from videos where pet_id=? and status!='error' and (preview is not null or status='running')",(m[1],)).fetchone()[0]); o['videos']=[dict(x) for x in c.execute("select * from videos where pet_id=? and status='done' order by id desc",(m[1],))]; o['comments']=[dict(x) for x in c.execute('select * from comments where pet_id=? order by id desc',(m[1],))]
             return s.js(o)
         m=re.match(r'/api/videos/(\d+)$',p)
         if m:
@@ -240,6 +252,7 @@ class H(http.server.SimpleHTTPRequestHandler):
                 pet=c.execute('select * from pets where id=?',(m[1],)).fetchone()
                 if not pet: return s.js({'error':'없음'},404)
                 if not s.can_view(pet): return s.js({'error':'비공개 별자리예요'},403)
+                if pet['example']: return s.js({'error':'예시 별자리는 영상을 만들 수 없어요. 내 아이 별자리를 만들어 주세요 🐾'},403)
                 if c.execute("select count(*) from videos where pet_id=? and status!='error' and (preview is not null or status='running')",(m[1],)).fetchone()[0]>=FREE_GEN: return s.js({'error':'이 별자리의 무료 미리보기를 이미 사용했어요'},402)
                 day=time.strftime('%Y-%m-%d'); ip=(s.headers.get('X-Forwarded-For') or s.client_address[0]).split(',')[0].strip(); cid=str(b.get('cid') or '')[:40]
                 if c.execute('select count(*) from gen_log where day=? and (ip=? or (length(cid)>0 and cid=?))',(day,ip,cid)).fetchone()[0]>=1: return s.js({'error':'무료 미리보기는 하루에 한 번만 만들 수 있어요. 내일 다시 찾아와 주세요 🌙'},429)
