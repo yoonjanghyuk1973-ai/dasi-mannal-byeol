@@ -1,20 +1,89 @@
 import http.server, json, sqlite3, os, base64, uuid, re, time
 from urllib.parse import urlparse
 D=os.path.dirname(os.path.abspath(__file__)); DB=os.environ.get('MEMORIAL_DB') or os.path.join(D,'memorial.db')
+SB=os.environ.get('SUPABASE_URL','').rstrip('/'); SBK=os.environ.get('SUPABASE_SERVICE_KEY',''); PGURL=bool(SB and SBK)
+class Row(dict):
+    def __init__(s,cols,vals): super().__init__(zip(cols,vals)); s._v=list(vals)
+    def __getitem__(s,k): return s._v[k] if isinstance(k,int) else dict.__getitem__(s,k)
+    def __iter__(s): return iter(s._v)
+    def keys(s): return dict.keys(s)
+class PCur:
+    def __init__(s,cur,rid=None): s.c=cur; s.lastrowid=rid
+    def _r(s,t): return None if t is None else Row([d.name for d in s.c.description],t)
+    def fetchone(s): return s._r(s.c.fetchone()) if s.c.description else None
+    def fetchall(s): return [s._r(t) for t in s.c.fetchall()] if s.c.description else []
+    def __iter__(s): return iter(s.fetchall())
+def _lit(v):
+    if v is None: return 'NULL'
+    if isinstance(v,bool): return '1' if v else '0'
+    if isinstance(v,(int,float)): return repr(v)
+    return "'"+str(v).replace("\x00","").replace("'","''")+"'"
+def _rpc(q):
+    import urllib.request
+    r=urllib.request.Request(SB+'/rest/v1/rpc/exec_sql',json.dumps({'q':q}).encode(),{'Authorization':'Bearer '+SBK,'apikey':SBK,'Content-Type':'application/json'})
+    try: return json.loads(urllib.request.urlopen(r,timeout=30).read() or b'null')
+    except urllib.error.HTTPError as e: raise Exception('db: '+e.read().decode()[:300])
+class PCur:
+    def __init__(s,rows,rid=None): s.rows=[Row(list(x.keys()),list(x.values())) for x in (rows or [])]; s.lastrowid=rid
+    def fetchone(s): return s.rows[0] if s.rows else None
+    def fetchall(s): return s.rows
+    def __iter__(s): return iter(s.rows)
+class PConn:
+    def execute(s,q,a=()):
+        parts=q.split('?'); a=list(a)
+        if len(parts)-1!=len(a): raise Exception('param count')
+        q=parts[0]+''.join(_lit(v)+t for v,t in zip(a,parts[1:]))
+        if q.lstrip().lower().startswith('insert') and ' returning ' not in q.lower():
+            r=_rpc(q+' returning id'); return PCur(r,r[0]['id'] if r else None)
+        return PCur(_rpc(q))
+    def executescript(s,q):
+        for st in q.split(';'):
+            if st.strip(): _rpc(st)
+    def __enter__(s): return s
+    def __exit__(s,*e): pass
 def db():
+    if PGURL: return PConn()
     c=sqlite3.connect(DB); c.row_factory=sqlite3.Row; return c
+PK='bigserial primary key' if PGURL else 'integer primary key'
 with db() as c:
-    c.executescript("""create table if not exists pets(id integer primary key,name text,species text,birth text,passed text,photo text,letter text,owner text,candles integer default 0,example integer default 0,created real);
-    create table if not exists videos(id integer primary key,pet_id int,status text,provider text,url text,sample integer default 0,error text,job text,created real);
-    create table if not exists _x(i int);
-    create table if not exists comments(id integer primary key,pet_id int,author text,body text,created real);""")
+    c.executescript(f"""create table if not exists pets(id {PK},name text,species text,birth text,passed text,photo text,letter text,owner text,candles integer default 0,example integer default 0,created double precision,ekey text,visibility text default 'public');
+    create table if not exists videos(id {PK},pet_id int,status text,provider text,url text,sample integer default 0,error text,job text,created double precision,style text default 'walk',src text,preview text,orig text);
+    create table if not exists comments(id {PK},pet_id int,author text,body text,created double precision);
+    create table if not exists posts(id {PK},kind text,pet_id int,nick text,body text,photo text,need integer default 0,r1 integer default 0,r2 integer default 0,reports integer default 0,hidden integer default 0,example integer default 0,created double precision);
+    create table if not exists replies(id {PK},post_id int,nick text,body text,created double precision);
+    create table if not exists events(id {PK},pet_id int,name text,created double precision);
+    create table if not exists gen_log(id {PK},day text,ip text,cid text,pet_id int,created double precision)""")
+    if PGURL:
+        for _t in ('pets','videos','comments','posts','replies','events','gen_log'): c.execute(f'alter table {_t} enable row level security')
+# --- Supabase Storage (영구 파일 저장) ---
+def sb_req(method,path,data=None,ctype='application/json'):
+    import urllib.request
+    r=urllib.request.Request(SB+path,data=data,method=method,headers={'Authorization':'Bearer '+SBK,'apikey':SBK,'Content-Type':ctype,'x-upsert':'true'})
+    return urllib.request.urlopen(r,timeout=120).read()
+def bucket_of(rel): return 'orig' if rel.startswith('orig/') else 'media'
+def store_put(rel):  # rel like 'uploads/x.jpg' -> upload local file
+    if not SB: return
+    import mimetypes
+    sb_req('POST',f'/storage/v1/object/{bucket_of(rel)}/{rel}',open(os.path.join(D,rel),'rb').read(),mimetypes.guess_type(rel)[0] or 'application/octet-stream')
+def ensure_local(rel):
+    rel=rel.lstrip('/'); fp=os.path.join(D,rel)
+    if rel and not os.path.isfile(fp) and SB and not rel.startswith('static/'):
+        try:
+            b=sb_req('GET',f'/storage/v1/object/authenticated/{bucket_of(rel)}/{rel}'); os.makedirs(os.path.dirname(fp),exist_ok=True); open(fp,'wb').write(b)
+        except Exception as e: print('storage get fail',rel,e,flush=True)
+    return fp
+for _d in ('uploads','videos','orig'): os.makedirs(os.path.join(D,_d),exist_ok=True)
+if SB:
+    for _b,_pub in (('media',True),('orig',False)):
+        try: sb_req('POST','/storage/v1/bucket',json.dumps({'id':_b,'name':_b,'public':_pub}).encode())
+        except Exception: pass
 def save_photo(data):
     if not data: return ''
     m=re.match(r'data:image/(\w+);base64,(.*)',data,re.S)
     if not m: return ''
     ext=m.group(1).replace('jpeg','jpg'); raw=base64.b64decode(m.group(2))
     if len(raw)>8_000_000: return ''
-    fn=uuid.uuid4().hex+'.'+ext; open(os.path.join(D,'uploads',fn),'wb').write(raw); return '/uploads/'+fn
+    fn=uuid.uuid4().hex+'.'+ext; open(os.path.join(D,'uploads',fn),'wb').write(raw); store_put('uploads/'+fn); return '/uploads/'+fn
 with db() as c:  # 예시 별자리 시드 (비어 있을 때만)
     if not c.execute('select count(*) from pets').fetchone()[0]:
         now=time.time()
@@ -35,9 +104,6 @@ PROMPTS={'walk':PROMPT,'play':("Animate this exact photo as the first frame. Kee
  "appearance (breed, fur color, markings, face) unchanged. The pet comes alive in this same place: playing, running around, "
  "wagging its tail happily. The owner's hands and arms gently enter the frame to play with and pet it, and at the end the owner "
  "hugs the pet warmly. Natural, realistic motion, warm healing mood, vertical 9:16, about 10 seconds.")}
-try:
-    with db() as c: c.execute("alter table videos add column style text default 'walk'"); c.execute("alter table videos add column src text")
-except Exception: pass
 class DemoProvider:
     name='demo'; sample=1
     def generate(s,photo_path,prompt):
@@ -85,9 +151,9 @@ def paid_provider():  # 유료 원본: 1.5 720p — 결제 연동 후에만 호�
 def run_job(vid,pet,style,src):
     pv=provider()
     try:
-        ph=os.path.join(D,src.lstrip('/')) if src else ''
+        ph=ensure_local(src) if src else ''
         fn=pv.generate(ph,PROMPTS[style]); pf='prev_'+fn
-        watermark(os.path.join(D,'orig',fn),os.path.join(D,'videos',pf))
+        watermark(os.path.join(D,'orig',fn),os.path.join(D,'videos',pf)); store_put('videos/'+pf); store_put('orig/'+fn)
         with db() as c: c.execute("update videos set status='done',url=?,preview=?,orig=?,job=? where id=?",('/videos/'+pf,'/videos/'+pf,fn,json.dumps({'cost_usd':(getattr(pv,'last_cost',0) or 0)/1e10}),vid))
         print('video',vid,'done',pv.name,getattr(pv,'last_cost',None),flush=True)
     except Exception as e:
@@ -95,9 +161,6 @@ def run_job(vid,pet,style,src):
             c.execute("update videos set status='error',error=? where id=?",(str(e)[:200],vid))
             c.execute('delete from gen_log where id=(select max(id) from gen_log where pet_id=?)',(pet['id'],))  # 실패 시 무료 횟수 돌려주기
 with db() as c:
-    c.executescript('''create table if not exists posts(id integer primary key,kind text,pet_id int,nick text,body text,photo text,need integer default 0,r1 integer default 0,r2 integer default 0,reports integer default 0,hidden integer default 0,example integer default 0,created real);
-    create table if not exists replies(id integer primary key,post_id int,nick text,body text,created real);
-    create table if not exists events(id integer primary key,pet_id int,name text,created real);''')
     if not c.execute('select count(*) from posts').fetchone()[0]:
         now=time.time()
         for k,pid,n,b,need,ph in [('comfort',None,'[예시] 콩이엄마','어제 콩이 산책 시간이 되니까 저절로 현관을 보게 되더라고요. 다들 이런 순간 어떻게 버티셨나요?',1,''),
@@ -106,14 +169,6 @@ with db() as c:
             cur=c.execute('insert into posts(kind,pet_id,nick,body,need,photo,example,created,r1,r2) values(?,?,?,?,?,?,1,?,3,5)',(k,pid,n,b,need,ph,now-3600))
         c.execute('insert into replies(post_id,nick,body,created) values(1,?,?,?)',('[예시] 별지기','저도 그랬어요. 천천히 슬퍼해도 괜찮아요 🤍',now-1800))
 import secrets, zipfile, io, subprocess
-for col in ["ekey text","visibility text default 'public'"]:
-    try:
-        with db() as c: c.execute('alter table pets add column '+col)
-    except Exception: pass
-for col in ["preview text","orig text"]:
-    try:
-        with db() as c: c.execute('alter table videos add column '+col)
-    except Exception: pass
 with db() as c:
     for (i,) in c.execute('select id from pets where ekey is null').fetchall(): c.execute('update pets set ekey=? where id=?',(secrets.token_urlsafe(12),i))
 FONT='/usr/share/fonts/truetype/sand-box/google/Gothic A1/GothicA1-Regular.ttf'
@@ -125,7 +180,6 @@ def watermark(src,dst):
 FREE_GEN=1  # 별자리당 무료 미리보기 1회
 DAILY_CAP=int(os.environ.get('FREE_DAILY_CAP','30'))  # 전체 하루 무료 생성 상한
 PAID_PRICE=3900  # 원본(grok-imagine-video-1.5, 720p) — 결제 미연동
-with db() as c: c.execute('create table if not exists gen_log(id integer primary key,day text,ip text,cid text,pet_id int,created real)')
 BAD=['씨발','시발','병신','개새','좆','미친놈','꺼져','죽어','ㅅㅂ','ㅂㅅ']
 def bad(t): return any(w in t.replace(' ','') for w in BAD)
 PRES={}
@@ -168,7 +222,7 @@ class H(http.server.SimpleHTTPRequestHandler):
                 vs=[dict(x) for x in c.execute("select url,orig from videos where pet_id=? and status='done'",(m[1],))]
             bio=io.BytesIO(); z=zipfile.ZipFile(bio,'w',zipfile.ZIP_DEFLATED)
             def add(path,arc):
-                fp=os.path.join(D,path.lstrip('/'))
+                fp=ensure_local(path) if path else ''
                 if path and os.path.isfile(fp): z.write(fp,arc)
             add(r['photo'] or '','사진/대표사진'+os.path.splitext(r['photo'] or '')[1])
             z.writestr('편지.txt',f"{r['name']}에게\n{r['birth']} ~ {r['passed']}\n\n{r['letter'] or ''}\n\n— {r['owner'] or '보호자'}")
@@ -193,8 +247,11 @@ class H(http.server.SimpleHTTPRequestHandler):
                 ps=[dict(r) for r in c.execute(sql+' order by example, p.id desc limit 100',a)]
                 for x in ps: x['replies']=[dict(r) for r in c.execute('select * from replies where post_id=? order by id',(x['id'],))]
             return s.js(ps)
-        if p.startswith('/videos/'): return super().do_GET()
-        if p.startswith('/uploads/') or p.startswith('/static/'): return super().do_GET()
+        if p.startswith('/videos/') or p.startswith('/uploads/'):
+            if SB and not os.path.isfile(os.path.join(D,p.lstrip('/'))):
+                s.send_response(302); s.send_header('Location',f'{SB}/storage/v1/object/public/media{p}'); s.send_header('Cache-Control','public, max-age=86400'); s.end_headers(); return
+            return super().do_GET()
+        if p.startswith('/static/'): return super().do_GET()
         s.path='/static/index.html'; return super().do_GET()
     def do_POST(s):
         p=urlparse(s.path).path
