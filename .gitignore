@@ -1,0 +1,9 @@
+memorial.db
+uploads/
+videos/
+orig/
+screens/
+.chk/
+*.log
+server.bak
+.env

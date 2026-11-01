@@ -1,0 +1,147 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>다시만날별 · 반려동물 별자리 추모관</title><meta name="theme-color" content="#141a3a">
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,"Noto Sans KR","Apple SD Gothic Neo",sans-serif;color:#f4ecdf;background:linear-gradient(#0d1230,#1d2352 60%,#3a2f55);min-height:100vh}
+#sky{position:fixed;inset:0;z-index:-1;pointer-events:none}
+header{padding:18px 16px 6px;text-align:center}header h1{margin:0;font-size:24px;letter-spacing:2px;color:#ffe6a8;cursor:pointer}header p{margin:4px 0 0;font-size:13px;opacity:.75}
+main{max-width:560px;margin:0 auto;padding:12px 14px 90px}
+.btn{display:inline-block;border:0;border-radius:22px;padding:12px 18px;font-size:15px;background:#ffd98a;color:#2a2140;font-weight:700;cursor:pointer;text-decoration:none}
+.btn.ghost{background:rgba(255,255,255,.12);color:#ffe6a8}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+.locker{position:relative;background:linear-gradient(#2b3270,#232a5c);border:1px solid rgba(255,230,168,.25);border-radius:14px;padding:10px;text-align:center;cursor:pointer;box-shadow:0 4px 18px rgba(0,0,0,.3)}
+.locker .no{position:absolute;top:6px;left:9px;font-size:11px;opacity:.6}.locker .tag{position:absolute;top:6px;right:8px;font-size:10px;background:#ffd98a33;color:#ffe6a8;padding:2px 6px;border-radius:8px}
+.locker img,.ph{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;margin-top:14px;background:#151a40;display:flex;align-items:center;justify-content:center;font-size:40px}
+.locker b{display:block;margin-top:8px}.locker small{opacity:.7;font-size:12px}
+.card{background:rgba(255,255,255,.07);border-radius:16px;padding:16px;margin-top:14px}
+label{display:block;font-size:14px;margin:12px 0 5px;color:#ffe6a8}
+input,select,textarea{width:100%;padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.25);color:#fff;font-size:16px;font-family:inherit}
+textarea{min-height:140px}.row{display:flex;gap:10px}.row>div{flex:1}
+.hero{width:100%;aspect-ratio:1;object-fit:cover;border-radius:18px}.letter{white-space:pre-wrap;line-height:1.8;font-family:"Nanum Myeongjo",serif}
+.cmt{border-top:1px solid rgba(255,255,255,.1);padding:10px 0;font-size:14px}.cmt b{color:#ffe6a8}
+.candle{font-size:17px;width:100%;margin-top:12px}
+#walk{position:fixed;inset:0;background:#070a1f;z-index:10;overflow:hidden}#walk canvas{display:block}
+#walk .close{position:absolute;top:14px;right:14px;z-index:2}#walk .msg{position:absolute;bottom:40px;width:100%;text-align:center;font-size:16px;color:#ffe6a8;padding:0 20px;transition:opacity 1.5s}
+.herobox{text-align:center;padding:18px 14px;margin-bottom:14px;border-radius:18px;background:radial-gradient(circle at 50% 0,rgba(255,217,138,.25),rgba(255,255,255,.05));border:1px solid rgba(255,230,168,.3)}.herobox h2{margin:8px 0;font-size:21px;line-height:1.45;color:#ffe6a8}.herobox p{margin:0;font-size:13px;opacity:.8;line-height:1.6}
+.vpick{margin-top:14px;padding:14px;border-radius:14px;background:rgba(255,217,138,.08);border:1px solid rgba(255,230,168,.25);text-align:left}.vt{font-weight:700;color:#ffe6a8;margin-bottom:8px}
+.opt{display:flex;gap:10px;align-items:flex-start;margin:6px 0;padding:10px;border-radius:12px;background:rgba(0,0,0,.2);border:1px solid transparent;cursor:pointer;color:#f4ecdf;font-size:14px}.opt:has(input:checked){border-color:#ffd98a;background:rgba(255,217,138,.12)}
+.opt input{width:auto;margin-top:3px;accent-color:#ffd98a}.opt b{display:block}.opt em{font-style:normal;font-size:11px;background:#ffd98a;color:#2a2140;padding:1px 6px;border-radius:6px;margin-left:4px}.opt small{opacity:.75;font-size:12px;line-height:1.5}
+.vbtn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:linear-gradient(90deg,#ffd98a,#ffb6c9)}.vid{width:100%;aspect-ratio:9/16;max-height:70vh;border-radius:14px;background:#000;display:block;margin:10px auto 0}
+.badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:8px;background:#ffb6c955;color:#ffe6a8;margin-top:6px}
+.prog{padding:26px 10px;text-align:center}.prog .orb{font-size:42px;animation:fl 2s ease-in-out infinite}@keyframes fl{50%{transform:translateY(-10px);opacity:.6}}
+.bar{height:6px;border-radius:3px;background:rgba(255,255,255,.12);overflow:hidden;margin-top:14px}.bar i{display:block;height:100%;width:40%;background:#ffd98a;animation:sl 1.6s linear infinite}@keyframes sl{from{margin-left:-40%}to{margin-left:100%}}
+.vrow{display:flex;gap:8px;margin-top:8px}.vrow .btn{flex:1;padding:10px;font-size:14px}
+.tabs{position:fixed;bottom:0;left:0;right:0;display:flex;background:rgba(13,18,48,.95);backdrop-filter:blur(8px);border-top:1px solid rgba(255,230,168,.2);padding-bottom:env(safe-area-inset-bottom);z-index:5}
+.tabs a{flex:1;text-align:center;padding:9px 0 8px;color:#f4ecdf;opacity:.6;text-decoration:none;font-size:12px}.tabs a b{display:block;font-size:20px;font-weight:400}.tabs a.on{opacity:1;color:#ffe6a8}
+.live{display:flex;align-items:center;gap:8px;justify-content:center;font-size:14px;color:#ffe6a8;margin-bottom:8px}.dot{width:8px;height:8px;border-radius:50%;background:#7dffb0;box-shadow:0 0 8px #7dffb0;animation:fl 1.6s infinite}
+.ticker{height:34px;overflow:hidden;border-radius:17px;background:rgba(255,255,255,.07);font-size:13px;text-align:center;line-height:34px;margin-bottom:14px}.ticker span{display:block;transition:opacity .6s}
+.post{background:rgba(255,255,255,.07);border-radius:16px;padding:14px;margin-top:12px}.post .h{display:flex;justify-content:space-between;font-size:13px}.post .h b{color:#ffe6a8}.post p{line-height:1.7;margin:8px 0;white-space:pre-wrap}
+.post img{width:100%;border-radius:12px;max-height:360px;object-fit:cover}.rx{display:flex;gap:6px;flex-wrap:wrap}.rx button{border:1px solid rgba(255,230,168,.35);background:rgba(0,0,0,.2);color:#ffe6a8;border-radius:16px;padding:7px 11px;font-size:13px;cursor:pointer}
+.rep{font-size:11px;opacity:.5;background:none;border:0;color:#fff;cursor:pointer}.need{font-size:11px;background:#ffb6c955;color:#ffe6a8;padding:2px 7px;border-radius:8px;margin-left:4px}
+.rp{font-size:13px;border-left:2px solid rgba(255,230,168,.3);padding:4px 8px;margin-top:6px}.rp b{color:#ffe6a8}.chip{display:inline-block;padding:7px 12px;border-radius:16px;background:rgba(255,255,255,.1);color:#ffe6a8;font-size:13px;margin-right:6px;cursor:pointer}.chip.on{background:#ffd98a;color:#2a2140}
+.center{text-align:center}.err{color:#ffb3b3}
+</style></head><body><canvas id="sky"></canvas>
+<header><h1 onclick="go('#/')">✦ 다시만날별 ✦</h1><p>별이 된 아이를 기억하는 작은 별자리</p></header><main id="app"></main><nav class="tabs"><a href="#/" data-t="home"><b>✨</b>별자리</a><a href="#/memories" data-t="memories"><b>📷</b>추억</a><a href="#/comfort" data-t="comfort"><b>🤍</b>위로</a><a href="#/mine" data-t="mine"><b>🐾</b>내 아이</a></nav>
+<script>
+const $=s=>document.querySelector(s),app=$('#app'),esc=s=>(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const go=h=>location.hash=h;const api=(u,o)=>fetch(u,o&&{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(o)}).then(r=>r.json());
+const emo=s=>({'강아지':'🐶','고양이':'🐱','토끼':'🐰','햄스터':'🐹','새':'🐦'}[s]||'🐾');
+const fmt=d=>d?d.replace(/-/g,'.'):'';const ago=t=>new Date(t*1000).toLocaleDateString('ko-KR');
+async function home(){const ps=await api('/api/pets');app.innerHTML=`<div class="live"><span class="dot"></span>지금 <b id="onl">${LIVE.online||1}</b>명이 함께 있어요</div><div class="ticker"><span id="tk">별빛을 기다리고 있어요 ✦</span></div><div class="herobox"><div style="font-size:30px">🌙✨🐾</div><h2>별이 된 우리 아이와<br>함께 걷는 영상을 간직하세요</h2><p>사진 한 장으로 별빛 길을 함께 걷고, 마지막엔 꼭 안아주는 10초 영상을 만들어 드려요.</p></div><div class="center"><a class="btn" href="#/new">＋ 별자리 만들기</a></div>
+<div class="grid">${ps.map(p=>`<div class="locker" onclick="go('#/pet/${p.id}')"><span class="no">별자리 No.${String(p.id).padStart(3,'0')}</span>${p.example?'<span class="tag">예시</span>':''}
+${p.photo?`<img src="${p.photo}" alt="">`:`<div class="ph">${emo(p.species)}</div>`}<b>${esc(p.name)}</b><small>${fmt(p.birth)}${p.birth||p.passed?' ~ ':''}${fmt(p.passed)}</small><br><small>🕯 ${p.candles}</small></div>`).join('')}</div>`}
+function form(){app.innerHTML=`<div class="card"><h2 style="margin:0">별자리 만들기</h2>
+<label>아이 이름 *</label><input id="f_name" maxlength="40" placeholder="예: 콩이">
+<label>종류</label><select id="f_species"><option>강아지</option><option>고양이</option><option>토끼</option><option>햄스터</option><option>새</option><option>기타</option></select>
+<div class="row"><div><label>태어난 날</label><input type="date" id="f_birth"></div><div><label>별이 된 날</label><input type="date" id="f_passed"></div></div>
+<label>사진</label><input type="file" id="f_photo" accept="image/*"><img id="prev" style="display:none;width:100%;border-radius:12px;margin-top:8px">
+<label>보호자 이름</label><input id="f_owner" maxlength="30" placeholder="예: 엄마, 누나">
+<label>아이에게 쓰는 편지</label><textarea id="f_letter" placeholder="보고 싶은 마음을 적어 주세요."></textarea>
+<p id="ferr" class="err"></p><button class="btn" style="width:100%" id="save">별자리로 띄우기</button></div>`;
+let photo='';$('#f_photo').onchange=e=>{const f=e.target.files[0];if(!f)return;const im=new Image();im.onload=()=>{const m=900,s=Math.min(1,m/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=im.width*s;c.height=im.height*s;c.getContext('2d').drawImage(im,0,0,c.width,c.height);photo=c.toDataURL('image/jpeg',.85);$('#prev').src=photo;$('#prev').style.display='block'};im.src=URL.createObjectURL(f)};
+$('#save').onclick=async()=>{const v=k=>$('#f_'+k).value;const r=await api('/api/pets',{name:v('name'),species:v('species'),birth:v('birth'),passed:v('passed'),owner:v('owner'),letter:v('letter'),photo});if(r.error)return $('#ferr').textContent=r.error;MINE.push(r.id);localStorage.mine=JSON.stringify(MINE);go('#/pet/'+r.id)}}
+async function detail(id){const p=await api('/api/pets/'+id);if(p.error){app.innerHTML='<p class="center">별자리를 찾을 수 없어요.</p>';return}
+app.innerHTML=`<a href="#/" class="btn ghost">← 별자리 목록</a><div class="card center">${p.example?'<small class="tag" style="color:#ffe6a8">예시 별자리입니다</small>':''}
+${p.photo?`<img class="hero" src="${p.photo}">`:`<div class="ph hero" style="font-size:90px">${emo(p.species)}</div>`}<h2 style="margin:12px 0 4px">${esc(p.name)} ${emo(p.species)}</h2>
+<div style="color:#ffe6a8;font-size:13px">✦ ${esc(p.name)}의 별자리 ✦</div><small>${fmt(p.birth)} ~ ${fmt(p.passed)}</small><button class="btn candle" id="cd">🕯 별빛 밝히기 · <span id="cn">${p.candles}</span></button>
+<div class="vpick"><div class="vt">🎬 함께하는 영상 만들기</div>
+<label class="opt"><input type="radio" name="vs" value="play" checked><span><b>📸 사진 속에서 놀기 <em>추천</em></b><small>사진 그대로의 배경에서 아이가 다시 뛰놀고, 보호자의 손이 다가가 함께 놀고 꼭 안아줘요</small></span></label>
+<label class="opt"><input type="radio" name="vs" value="walk"><span><b>🌙 별길 산책</b><small>밤하늘 별빛 길을 함께 걷다가 마지막에 꼭 안아줘요</small></span></label>
+<div id="srcbox"><div style="display:flex;gap:10px;align-items:center;margin-top:10px"><img id="vsrc" src="${p.photo||''}" style="width:64px;height:64px;object-fit:cover;border-radius:10px;background:#151a40;${p.photo?'':'display:none'}">
+<label class="btn ghost" style="margin:0;padding:9px 12px;font-size:13px;color:#ffe6a8">사진 바꾸기<input type="file" id="vfile" accept="image/*" hidden></label></div><small style="opacity:.65;display:block;margin-top:4px">이 사진이 영상의 첫 장면이 돼요 (기본: 추모 사진)</small></div>
+<button class="btn vbtn candle" id="mkv">✨ 영상 만들기</button><div style="font-size:12px;opacity:.7;margin-top:6px">약 10초 · 세로 9:16</div></div>
+<button class="btn ghost candle" onclick="walk(${p.id})">✨ ${esc(p.name)}와(과) 별 산책하기</button></div>
+<div class="card" id="vcard" ${p.videos.length?'':'style="display:none"'}><h3 style="margin-top:0">🎞 함께 걷는 영상</h3><div id="vnew"></div><div id="vlist">${p.videos.map(v=>vhtml(v,p.name)).join('')}</div></div>
+${p.letter?`<div class="card"><h3 style="margin-top:0">💌 ${esc(p.owner||'보호자')}의 편지</h3><div class="letter">${esc(p.letter)}</div></div>`:''}
+<div class="card"><h3 style="margin-top:0">📷 ${esc(p.name)}의 추억</h3><a class="btn ghost" style="width:100%;text-align:center" href="#/memories?pet=${p.id}">＋ 추억 나누기</a><div id="pmem"></div></div>
+<div class="card"><h3 style="margin-top:0">방명록</h3><input id="ca" placeholder="이름 (선택)" maxlength="20"><textarea id="cb" style="min-height:80px;margin-top:8px" placeholder="${esc(p.name)}에게 따뜻한 한마디를 남겨 주세요"></textarea>
+<button class="btn" style="width:100%;margin-top:8px" id="cs">남기기</button><div id="cl">${p.comments.map(c=>`<div class="cmt"><b>${esc(c.author)}</b> <small style="opacity:.6">${ago(c.created)}</small><br>${esc(c.body)}</div>`).join('')||'<p style="opacity:.6">첫 인사를 남겨 주세요.</p>'}</div></div>`;
+let vphoto='';$('#vfile').onchange=e=>{const f=e.target.files[0];if(!f)return;const im=new Image();im.onload=()=>{const s=Math.min(1,1280/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=im.width*s;c.height=im.height*s;c.getContext('2d').drawImage(im,0,0,c.width,c.height);vphoto=c.toDataURL('image/jpeg',.88);$('#vsrc').src=vphoto;$('#vsrc').style.display=''};im.src=URL.createObjectURL(f)};
+document.querySelectorAll('[name=vs]').forEach(r=>r.onchange=()=>$('#srcbox').style.display=r.value==='play'&&r.checked?'':(r.checked?'none':$('#srcbox').style.display));
+api('/api/posts?kind=memory&pet='+id).then(ms=>$('#pmem').innerHTML=ms.map(postHtml).join('')||'<p style="opacity:.6">아직 나눈 추억이 없어요.</p>');
+$('#mkv').onclick=()=>makeVideo(p,document.querySelector('[name=vs]:checked').value,vphoto);
+$('#cd').onclick=async()=>{const r=await api(`/api/pets/${id}/candle`,{});$('#cn').textContent=r.candles;burst()};
+$('#cs').onclick=async()=>{if(!$('#cb').value.trim())return;await api(`/api/pets/${id}/comments`,{author:$('#ca').value,body:$('#cb').value});detail(id)}}
+function vhtml(v,name){return `<div style="margin-bottom:16px"><video class="vid" src="${v.url}" controls playsinline loop preload="metadata"></video><div class="center"><span class="badge" style="background:#ffd98a33">${v.style==='walk'?'🌙 별길 산책':'📸 사진 속에서 놀기'}</span> ${v.sample?'<span class="badge">샘플 영상 · 데모 (실제 생성 아님)</span>':''}</div>
+<div class="vrow"><a class="btn" href="${v.url}" download="${esc(name)}_함께걷기.mp4">⬇ 저장하기</a><button class="btn ghost" onclick="shareV('${v.url}','${esc(name)}')">🔗 공유하기</button></div><small style="opacity:.6">${ago(v.created)}</small></div>`}
+async function shareV(u,n){const full=location.origin+u;try{if(navigator.canShare){const b=await (await fetch(u)).blob(),f=new File([b],n+'_함께걷기.mp4',{type:'video/mp4'});if(navigator.canShare({files:[f]}))return navigator.share({files:[f],title:n+'와(과) 함께 걷는 영상'})}if(navigator.share)return navigator.share({title:'다시만날별',text:n+'와(과) 함께 걷는 영상',url:full});await navigator.clipboard.writeText(full);alert('링크를 복사했어요')}catch(e){}}
+async function makeVideo(p,style,photo){const b=$('#mkv');b.disabled=1;b.style.opacity=.6;$('#vcard').style.display='';
+$('#vnew').innerHTML=`<div class="prog"><div class="orb">🌟🐾</div><b style="color:#ffe6a8">${style==='play'?'사진 속 아이를 깨우고 있어요':'별길을 만들고 있어요'}</b><div style="font-size:13px;opacity:.75;margin-top:6px">${esc(p.name)}와(과) 걸을 별빛 길을 깔고 있어요. 잠시만 기다려 주세요.</div><div class="bar"><i></i></div></div>`;
+$('#vcard').scrollIntoView({behavior:'smooth'});const j=await api(`/api/pets/${p.id}/videos`,{style,photo});if(j.error){$('#vnew').innerHTML=`<p class="err">${j.error}</p>`;return}
+const poll=async()=>{const v=await api('/api/videos/'+j.id);if(v.status==='running')return setTimeout(poll,2500);b.disabled=0;b.style.opacity=1;
+if(v.status==='error'){$('#vnew').innerHTML=`<p class="err">영상을 만들지 못했어요. 다시 시도해 주세요.</p>`;return}$('#vnew').innerHTML='';$('#vlist').insertAdjacentHTML('afterbegin',vhtml(v,p.name));$('#vlist video').play().catch(()=>{})};poll()}
+
+let MINE=JSON.parse(localStorage.mine||'[]'),LIVE={};const CID=localStorage.cid||(localStorage.cid=Math.random().toString(36).slice(2));
+const ago2=t=>{const d=Date.now()/1000-t;return d<60?'방금':d<3600?Math.floor(d/60)+'분 전':d<86400?Math.floor(d/3600)+'시간 전':ago(t)};
+async function live(){try{await api('/api/heartbeat',{cid:CID});LIVE=await fetch('/api/live').then(r=>r.json());const o=$('#onl');if(o)o.textContent=LIVE.online;tick()}catch(e){}}
+let ti=0;function tick(){const t=$('#tk');if(!t||!LIVE.events)return;const e=LIVE.events;if(!e.length)return;const v=e[ti++%e.length];t.style.opacity=0;setTimeout(()=>{t.innerHTML=`${ago2(v.created)} <b style="color:#ffe6a8">${esc(v.name)}</b>에게 별빛이 켜졌어요 ✦`;t.style.opacity=1},500)}
+live();setInterval(live,10000);setInterval(tick,4000);
+function postHtml(x){const kind=x.kind;return `<div class="post" id="po${x.id}"><div class="h"><span><b>${esc(x.nick)}</b>${x.need?'<span class="need">위로받고 싶어요</span>':''}${x.pet_name?` · <a style="color:#ffe6a8" href="#/pet/${x.pet_id}">${esc(x.pet_name)}</a>`:''}</span><span style="opacity:.6">${ago2(x.created)}</span></div>
+${x.photo?`<img src="${x.photo}" style="margin-top:8px">`:''}<p>${esc(x.body)}</p><div class="rx">${kind==='comfort'?`<button onclick="react(${x.id},'r1',this)">곁에 있어요 🤗 <span>${x.r1}</span></button><button onclick="react(${x.id},'r2',this)">힘내요 💛 <span>${x.r2}</span></button>`:`<button onclick="react(${x.id},'r1',this)">공감해요 🥹 <span>${x.r1}</span></button><button onclick="react(${x.id},'r2',this)">보고싶어요 💛 <span>${x.r2}</span></button>`}
+<button class="rep" style="margin-left:auto" onclick="report(${x.id})">🚩 신고</button></div>
+<div>${x.replies.map(r=>`<div class="rp"><b>${esc(r.nick)}</b> ${esc(r.body)}</div>`).join('')}</div>
+<div style="display:flex;gap:6px;margin-top:8px"><input id="ri${x.id}" placeholder="따뜻한 답글 남기기" style="padding:9px;font-size:14px"><button class="btn" style="padding:8px 12px;font-size:13px;white-space:nowrap;flex:none" onclick="reply(${x.id})">등록</button></div></div>`}
+async function react(id,r,b){const k='rx'+id+r;if(localStorage[k])return;localStorage[k]=1;const o=await api(`/api/posts/${id}/react`,{r});b.querySelector('span').textContent=o[r];b.style.background='#ffd98a33';burst()}
+async function report(id){if(!confirm('이 글을 신고할까요? 신고가 쌓이면 숨겨져요.'))return;await api(`/api/posts/${id}/report`,{});alert('신고가 접수되었어요. 고마워요.')}
+async function reply(id){const i=$('#ri'+id);if(!i.value.trim())return;const r=await api(`/api/posts/${id}/reply`,{body:i.value,nick:localStorage.nick||''});if(r.error)return alert(r.error);route()}
+async function board(kind){const q=new URLSearchParams(location.hash.split('?')[1]||'');const pets=await api('/api/pets');const need=q.get('need')==='1';const pre=q.get('pet')||MINE[MINE.length-1]||'';
+const opts=pets.map(p=>`<option value="${p.id}" ${String(p.id)===String(pre)?'selected':''}>${esc(p.name)}</option>`).join('');
+app.innerHTML=kind==='comfort'?`<h2 style="margin:4px 0">🤍 위로·응원</h2><small style="opacity:.75">같은 아픔을 아는 사람들이 서로의 곁이 되어 줘요</small>
+<div class="card"><input id="pn" maxlength="20" placeholder="닉네임 (선택)" value="${esc(localStorage.nick||'')}"><textarea id="pb" style="min-height:90px;margin-top:8px" maxlength="600" placeholder="오늘의 마음, 또는 누군가에게 건네고 싶은 응원을 적어 주세요"></textarea>
+<label style="display:flex;gap:8px;align-items:center;color:#f4ecdf"><input type="checkbox" id="pneed" style="width:auto"> 💗 위로받고 싶어요</label><select id="pp"><option value="">내 아이와 연결 안 함</option>${opts}</select>
+<p id="perr" class="err"></p><button class="btn" style="width:100%" id="psend">마음 나누기</button></div>
+<div style="margin-top:12px"><span class="chip ${need?'':'on'}" onclick="go('#/comfort')">전체</span><span class="chip ${need?'on':''}" onclick="go('#/comfort?need=1')">💗 위로받고 싶어요</span></div><div id="feed"></div>`
+:`<h2 style="margin:4px 0">📷 추억 공유</h2><small style="opacity:.75">아이와의 소중한 순간을 함께 나눠요</small>
+<div class="card"><select id="pp"><option value="">어떤 아이의 추억인가요? *</option>${opts}</select><input type="file" id="pf" accept="image/*" style="margin-top:8px"><img id="pprev" style="display:none;width:100%;border-radius:12px;margin-top:8px">
+<input id="pn" maxlength="20" placeholder="닉네임 (선택)" style="margin-top:8px" value="${esc(localStorage.nick||'')}"><textarea id="pb" style="min-height:80px;margin-top:8px" maxlength="600" placeholder="이 사진 속 이야기를 들려주세요"></textarea>
+<p id="perr" class="err"></p><button class="btn" style="width:100%" id="psend">추억 올리기</button></div><div id="feed"></div>`;
+let photo='';const pf=$('#pf');if(pf)pf.onchange=e=>{const f=e.target.files[0];if(!f)return;const im=new Image();im.onload=()=>{const s=Math.min(1,1000/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=im.width*s;c.height=im.height*s;c.getContext('2d').drawImage(im,0,0,c.width,c.height);photo=c.toDataURL('image/jpeg',.85);$('#pprev').src=photo;$('#pprev').style.display='block'};im.src=URL.createObjectURL(f)};
+$('#psend').onclick=async()=>{localStorage.nick=$('#pn').value;const r=await api('/api/posts',{kind,nick:$('#pn').value,body:$('#pb').value,pet_id:$('#pp').value||null,need:$('#pneed')?.checked,photo});if(r.error)return $('#perr').textContent=r.error;burst();route()};
+const ps=await api(`/api/posts?kind=${kind}${need?'&need=1':''}${kind==='memory'&&q.get('pet')?'&pet='+q.get('pet'):''}`);$('#feed').innerHTML=ps.map(postHtml).join('')||'<p class="center" style="opacity:.6">첫 글을 남겨 주세요.</p>'}
+async function mine(){const ps=(await api('/api/pets')).filter(p=>MINE.includes(p.id));app.innerHTML=`<h2 style="margin:4px 0">🐾 내 아이</h2><small style="opacity:.75">이 기기에서 만든 별자리예요</small>
+<div class="grid">${ps.map(p=>`<div class="locker" onclick="go('#/pet/${p.id}')">${p.photo?`<img src="${p.photo}">`:`<div class="ph">${emo(p.species)}</div>`}<b>${esc(p.name)}</b><small>🕯 ${p.candles}</small></div>`).join('')}</div>
+${ps.length?'':'<div class="card center"><p>아직 만든 별자리가 없어요.</p></div>'}<div class="center" style="margin-top:14px"><a class="btn" href="#/new">＋ 별자리 만들기</a></div>`}
+// background stars
+const sk=$('#sky'),sx=sk.getContext('2d');let st=[],shoot=[];function rs(){sk.width=innerWidth;sk.height=innerHeight;st=Array.from({length:120},()=>({x:Math.random()*sk.width,y:Math.random()*sk.height,r:Math.random()*1.4+.3,p:Math.random()*6}))}rs();onresize=rs;
+function burst(){for(let i=0;i<30;i++)shoot.push({x:innerWidth/2,y:innerHeight/2,vx:(Math.random()-.5)*6,vy:(Math.random()-.5)*6-2,l:60})}
+(function tw(t){sx.clearRect(0,0,sk.width,sk.height);for(const s of st){sx.globalAlpha=.4+.6*Math.abs(Math.sin(t/1500+s.p));sx.fillStyle='#fff8e0';sx.beginPath();sx.arc(s.x,s.y,s.r,0,7);sx.fill()}
+shoot=shoot.filter(s=>s.l-->0);for(const s of shoot){s.x+=s.vx;s.y+=s.vy;sx.globalAlpha=s.l/60;sx.fillStyle='#ffd98a';sx.beginPath();sx.arc(s.x,s.y,2.2,0,7);sx.fill()}requestAnimationFrame(tw)})(0);
+// 별 산책
+let walking=0;async function walk(id){const p=await api('/api/pets/'+id);const w=document.createElement('div');w.id='walk';w.innerHTML=`<button class="btn ghost close">닫기 ✕</button><canvas></canvas><div class="msg"></div>`;document.body.appendChild(w);
+const c=w.querySelector('canvas'),x=c.getContext('2d'),dpr=devicePixelRatio||1;c.width=innerWidth*dpr;c.height=innerHeight*dpr;c.style.width=innerWidth+"px";c.style.height=innerHeight+"px";x.scale(dpr,dpr);const W=innerWidth,Hh=innerHeight;
+const img=new Image();if(p.photo)img.src=p.photo;const stars=Array.from({length:200},()=>({x:Math.random()*W*3,y:Math.random()*Hh*.75,r:Math.random()*1.6+.2,p:Math.random()*6}));
+const msgs=[`${p.name}, 오늘도 같이 걸어서 좋다.`,'별길은 따뜻하니?','여기서는 아프지 않지?','항상 고마웠어. 사랑해.',`다시 만날 그날까지, ${p.name} 안녕.`];let mi=0;const me=w.querySelector('.msg');me.textContent=msgs[0];
+const mt=setInterval(()=>{me.style.opacity=0;setTimeout(()=>{mi=(mi+1)%msgs.length;me.textContent=msgs[mi];me.style.opacity=1},1500)},6000);
+walking=1;w.querySelector('.close').onclick=()=>{walking=0;clearInterval(mt);w.remove()};const path=u=>Hh*.72+Math.sin(u/140)*18;
+(function f(t){if(!walking)return;const off=t*.04;const g=x.createLinearGradient(0,0,0,Hh);g.addColorStop(0,'#070a1f');g.addColorStop(.7,'#232a5c');g.addColorStop(1,'#4a3a66');x.fillStyle=g;x.fillRect(0,0,W,Hh);
+x.globalAlpha=.9;x.fillStyle='#fff6d8';x.beginPath();x.arc(W*.8,Hh*.15,28,0,7);x.fill();x.fillStyle='#070a1f';x.beginPath();x.arc(W*.8+11,Hh*.15-6,25,0,7);x.fill();
+for(const s of stars){const sx_=((s.x-off*.2)%(W*3)+W*3)%(W*3);if(sx_>W)continue;x.globalAlpha=.3+.7*Math.abs(Math.sin(t/900+s.p));x.fillStyle='#fff';x.beginPath();x.arc(sx_,s.y,s.r,0,7);x.fill()}
+for(let i=0;i<W+20;i+=14){const u=i+off;x.globalAlpha=.35+.5*Math.abs(Math.sin(u/50));x.fillStyle='#ffd98a';x.beginPath();x.arc(i,path(u)+Math.sin(u/9)*3,1.8+Math.abs(Math.sin(u/30)),0,7);x.fill()}
+const bob=Math.abs(Math.sin(t/220))*10;const px=W*.58,py=path(px+off)-55-bob;x.globalAlpha=1;x.save();x.shadowColor='#ffe6a8';x.shadowBlur=30;x.beginPath();x.arc(px,py,40,0,7);x.closePath();x.fillStyle='#2b3270';x.fill();x.clip();
+if(img.complete&&img.naturalWidth){const s=Math.max(80/img.width,80/img.height);x.drawImage(img,px-img.width*s/2,py-img.height*s/2,img.width*s,img.height*s)}else{x.font='48px serif';x.textAlign='center';x.fillText(emo(p.species),px,py+16)}x.restore();
+const hx=W*.32,hy=path(hx+off)-70-Math.abs(Math.sin(t/260+1))*6;x.fillStyle='rgba(255,236,200,.85)';x.beginPath();x.arc(hx,hy,13,0,7);x.fill();x.fillRect(hx-9,hy+14,18,40);
+x.strokeStyle='rgba(255,217,138,.5)';x.lineWidth=1.5;x.beginPath();x.moveTo(hx+9,hy+25);x.quadraticCurveTo((hx+px)/2,hy+60,px-40,py+10);x.stroke();
+for(let k=0;k<5;k++){const a=t/600+k*1.3;x.globalAlpha=.6;x.fillStyle='#ffe6a8';x.beginPath();x.arc(px-50-k*14-(t/20%14),py+30+Math.sin(a)*8,2,0,7);x.fill()}
+requestAnimationFrame(f)})(0)}
+function route(){walking=0;document.getElementById('walk')?.remove();const h=location.hash;let m;const tb=h.startsWith('#/memories')?'memories':h.startsWith('#/comfort')?'comfort':h.startsWith('#/mine')?'mine':'home';document.querySelectorAll('.tabs a').forEach(a=>a.classList.toggle('on',a.dataset.t===tb));
+if(h.startsWith('#/memories'))board('memory');else if(h.startsWith('#/comfort'))board('comfort');else if(h==='#/mine')mine();else if(h==='#/new')form();else if(m=h.match(/#\/pet\/(\d+)/))detail(m[1]);else home();scrollTo(0,0)}onhashchange=route;route();if(location.search.includes("walk="))setTimeout(()=>walk(+new URLSearchParams(location.search).get("walk")),300);
+</script></body></html>
