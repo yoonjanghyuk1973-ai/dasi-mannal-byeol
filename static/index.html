@@ -43,14 +43,18 @@ textarea{min-height:140px}.row{display:flex;gap:10px}.row>div{flex:1}
 .fly{position:absolute;font-size:26px;pointer-events:none;animation:up 1.6s ease-out forwards}@keyframes up{to{transform:translateY(-110px) scale(1.4);opacity:0}}
 footer{max-width:560px;margin:0 auto;padding:0 18px 100px;font-size:11px;line-height:1.7;opacity:.6;text-align:center}
 .center{text-align:center}.err{color:#ffb3b3}
+@media(min-width:700px){html,body{overflow-x:clip}.plaza{width:100vw;margin-left:calc(50% - 50vw);border-radius:0;height:60vh}}
 </style><style>
 .plaza{position:relative;height:55vh;min-height:300px;margin:10px 0 14px;border-radius:20px;overflow:hidden;background:radial-gradient(ellipse at 50% 110%,#3b2f6b 0%,#161a3d 55%,#0b0d24 100%);box-shadow:inset 0 0 40px rgba(140,120,255,.25);touch-action:pan-y}
 .plaza .st{position:absolute;width:3px;height:3px;border-radius:50%;background:#fff6d0;animation:tw 3s ease-in-out infinite}
 @keyframes tw{0%,100%{opacity:.2}50%{opacity:1}}
 .plaza .ground{position:absolute;left:0;right:0;bottom:0;height:22%;background:linear-gradient(transparent,rgba(255,230,160,.08))}
 .av{position:absolute;left:0;top:0;width:64px;text-align:center;will-change:transform;cursor:pointer;-webkit-tap-highlight-color:transparent}
-.av .im{width:56px;height:56px;margin:0 auto;border-radius:50%;overflow:hidden;border:2px solid #ffe6a8;box-shadow:0 0 14px rgba(255,220,140,.6);background:#334}
-.av .im img{width:100%;height:100%;object-fit:cover;display:block}
+.av .im{width:64px;height:64px;margin:0 auto;filter:drop-shadow(0 0 6px rgba(255,220,140,.75))}
+.av .sk{width:100%;height:100%;clip-path:polygon(50.0% 4.0%,67.0% 30.5%,97.6% 38.5%,77.6% 63.0%,79.4% 94.5%,50.0% 83.0%,20.6% 94.5%,22.4% 63.0%,2.4% 38.5%,33.0% 30.5%);background:linear-gradient(160deg,#fff3c4,#ffd36b 55%,#f0b545);display:flex;align-items:center;justify-content:center}
+.av .in{width:86%;height:86%;clip-path:polygon(50.0% 4.0%,67.0% 30.5%,97.6% 38.5%,77.6% 63.0%,79.4% 94.5%,50.0% 83.0%,20.6% 94.5%,22.4% 63.0%,2.4% 38.5%,33.0% 30.5%);background:#2a3060;overflow:hidden}
+.av .in img{width:100%;height:100%;object-fit:cover;display:block}
+.av .in div{font-size:24px;line-height:55px;text-align:center;padding-top:2px}
 .av .nm{display:inline-block;margin-top:3px;font-size:11px;color:#fff;background:rgba(10,12,40,.65);padding:1px 6px;border-radius:9px;white-space:nowrap}
 .av .eg{position:absolute;top:-4px;right:0;font-size:9px;background:#ffe6a8;color:#3a2d00;border-radius:7px;padding:0 4px}
 </style>
@@ -221,7 +225,7 @@ for(let i=0;i<40;i++){const t=document.createElement('i');t.className='st';t.sty
 const g=document.createElement('div');g.className='ground';el.appendChild(g);
 const W=()=>el.clientWidth,H=()=>el.clientHeight,A=[];
 ps.slice(0,30).forEach(p=>{const d=document.createElement('div');d.className='av';const nm=esc(String(p.name).replace('[예시] ',''));
-d.innerHTML=`<div class="im">${p.photo?`<img src="${p.photo}" alt="">`:`<div style="font-size:30px;line-height:56px">${emo(p.species)}</div>`}</div>${p.example?'<span class="eg">예시</span>':''}<span class="nm">${nm}</span>`;
+d.innerHTML=`<div class="im"><div class="sk"><div class="in">${p.photo?`<img src="${p.photo}" alt="">`:`<div>${emo(p.species)}</div>`}</div></div></div>${p.example?'<span class="eg">예시</span>':''}<span class="nm">${nm}</span>`;
 d.onclick=()=>go('#/pet/'+p.id);el.appendChild(d);
 A.push({d,x:10+Math.random()*(W()-84),y:H()*0.15+Math.random()*(H()*0.7-80),tx:0,ty:0,wait:Math.random()*60,ph:Math.random()*6,f:1,sp:.35+Math.random()*.35})});
 const pick=a=>{a.tx=10+Math.random()*(W()-84);a.ty=H()*0.12+Math.random()*(H()*0.72-80)};A.forEach(pick);
