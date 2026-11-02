@@ -172,7 +172,17 @@ with db() as c:
 import secrets, zipfile, io, subprocess
 with db() as c:
     for (i,) in c.execute('select id from pets where ekey is null').fetchall(): c.execute('update pets set ekey=? where id=?',(secrets.token_urlsafe(12),i))
-FONT=os.path.join(os.path.dirname(os.path.abspath(__file__)),'fonts','GothicA1-Regular.ttf')  # 한글 폰트 번들 (Render엔 시스템 한글 폰트 없음)
+def _pick_font():  # 한글 폰트: 번들 → noto-cjk 백업. 없거나 깨졌으면 크게 로그
+    cands=[os.path.join(os.path.dirname(os.path.abspath(__file__)),'fonts','GothicA1-Regular.ttf'),
+           '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc','/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc']
+    for f in cands:
+        try:
+            if os.path.getsize(f)>100000 and open(f,'rb').read(4) in (b'\x00\x01\x00\x00',b'OTTO',b'ttcf',b'true'):
+                print('KOREAN FONT OK:',f,os.path.getsize(f),flush=True); return f
+            print('!!!!! KOREAN FONT INVALID (LFS pointer/corrupt?):',f,flush=True)
+        except OSError: print('!!!!! KOREAN FONT MISSING:',f,flush=True)
+    print('!!!!!!!!!! NO KOREAN FONT FOUND — 영상 한글이 □□□ 로 나옵니다 !!!!!!!!!!',flush=True); return cands[0]
+FONT=_pick_font()
 def watermark(src,dst,name=''):
     vf=("scale=360:-2,drawtext=fontfile='%s':text='다시만날별 미리보기':fontcolor=white@0.55:fontsize=22:x=(w-tw)/2:y=h*0.12,"
         "drawtext=fontfile='%s':text='PREVIEW':fontcolor=white@0.35:fontsize=46:x=(w-tw)/2:y=(h-th)/2")%(FONT,FONT)
@@ -185,6 +195,13 @@ def watermark(src,dst,name=''):
         try: os.remove(tf)
         except OSError: pass
     if r.returncode: raise Exception('워터마크 실패: '+r.stderr.decode()[-200:])
+def rewatermark(vid_row,name):  # 저장된 원본(orig)에 오버레이만 다시 입힘 (AI 재생성 없음, 새 파일명으로 캐시 회피)
+    src=ensure_local('orig/'+vid_row['orig'])
+    if not os.path.isfile(src) or not os.path.getsize(src): raise Exception('원본 없음')
+    pf='prev_'+uuid.uuid4().hex[:6]+'_'+vid_row['orig']
+    watermark(src,os.path.join(D,'videos',pf),name); store_put('videos/'+pf)
+    with db() as c: c.execute('update videos set url=?,preview=? where id=?',('/videos/'+pf,'/videos/'+pf,vid_row['id']))
+    return '/videos/'+pf
 def photo_from_video(pet_id,orig,preview):  # 사진 없는 별자리: 영상에서 프레임 추출해 대표사진으로
     try:
         src=ensure_local('orig/'+orig) if orig else ''
@@ -352,6 +369,15 @@ class H(http.server.SimpleHTTPRequestHandler):
                 if bad(t): return s.js({'error':'따뜻한 말로 다시 적어 주세요 🙏'},400)
                 c.execute('insert into replies(post_id,nick,body,created) values(?,?,?,?)',(m[1],(b.get('nick') or '').strip()[:20] or '익명',t,time.time()))
             return s.js({'ok':1})
+        m=re.match(r'/api/admin/rewatermark/(\d+)$',p)  # 관리자 전용: ADMIN_TOKEN 헤더 필요
+        if m:
+            tok=os.environ.get('ADMIN_TOKEN','')
+            if not tok or not secrets.compare_digest(s.headers.get('X-Admin-Token',''),tok): return s.js({'error':'forbidden'},403)
+            with db() as c:
+                pet=s.pet(c,m[1]); v=c.execute("select * from videos where pet_id=? and status='done' and orig is not null order by id desc limit 1",(m[1],)).fetchone()
+            if not pet or not v: return s.js({'error':'no video'},404)
+            try: return s.js({'ok':1,'url':rewatermark(dict(v),pet['name'])})
+            except Exception as e: return s.js({'error':str(e)[:300]},500)
         m=re.match(r'/api/pets/(\d+)/videos$',p)
         if m:
             with db() as c:
