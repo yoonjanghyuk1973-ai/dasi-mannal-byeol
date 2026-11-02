@@ -155,6 +155,7 @@ def run_job(vid,pet,style,src):
         fn=pv.generate(ph,PROMPTS[style]); pf='prev_'+fn
         watermark(os.path.join(D,'orig',fn),os.path.join(D,'videos',pf),pet.get('name','')); store_put('videos/'+pf); store_put('orig/'+fn)
         with db() as c: c.execute("update videos set status='done',url=?,preview=?,orig=?,job=? where id=?",('/videos/'+pf,'/videos/'+pf,fn,json.dumps({'cost_usd':(getattr(pv,'last_cost',0) or 0)/1e10}),vid))
+        if not src and not pet.get('photo'): photo_from_video(pet['id'],fn,'/videos/'+pf)
         print('video',vid,'done',pv.name,getattr(pv,'last_cost',None),flush=True)
     except Exception as e:
         with db() as c:
@@ -184,10 +185,30 @@ def watermark(src,dst,name=''):
         try: os.remove(tf)
         except OSError: pass
     if r.returncode: raise Exception('워터마크 실패: '+r.stderr.decode()[-200:])
-with db() as c:  # 사진 없이 영상만 만든 별자리: 영상 원본 사진을 대표사진으로 백필
-    for r in c.execute("select id from pets where coalesce(photo,'')='' and coalesce(example,0)=0").fetchall():
-        v=c.execute("select src from videos where pet_id=? and coalesce(src,'')!='' order by id desc limit 1",(r[0],)).fetchone()
-        if v: c.execute('update pets set photo=? where id=?',(v[0],r[0]))
+def photo_from_video(pet_id,orig,preview):  # 사진 없는 별자리: 영상에서 프레임 추출해 대표사진으로
+    try:
+        src=ensure_local('orig/'+orig) if orig else ''
+        crop='crop=iw:iw:0:(ih-iw)/2,scale=480:480'
+        if not (src and os.path.isfile(src) and os.path.getsize(src)>0):
+            src=ensure_local(preview) if preview else ''
+            crop='crop=iw:ih*0.3:0:ih*0.53,scale=480:-2'  # 워터마크(상단/중앙 PREVIEW/하단 자막) 피한 영역
+        if not (src and os.path.isfile(src)): return ''
+        fn=uuid.uuid4().hex+'.jpg'; out=os.path.join(D,'uploads',fn)
+        r=subprocess.run(['ffmpeg','-y','-loglevel','error','-ss','1','-i',src,'-frames:v','1','-vf',crop,'-q:v','3',out],capture_output=True)
+        if r.returncode or not os.path.isfile(out): print('frame fail',pet_id,r.stderr[-200:],flush=True); return ''
+        store_put('uploads/'+fn)
+        with db() as c: c.execute("update pets set photo=? where id=? and coalesce(photo,'')=''",('/uploads/'+fn,pet_id))
+        print('pet',pet_id,'photo from video',fn,flush=True); return '/uploads/'+fn
+    except Exception as e: print('photo_from_video fail',pet_id,e,flush=True); return ''
+def backfill_photos():
+    with db() as c: rows=c.execute("select id from pets where coalesce(photo,'')='' and coalesce(example,0)=0").fetchall()
+    for r in rows:
+        with db() as c: v=c.execute("select src,orig,preview from videos where pet_id=? and status='done' order by id desc limit 1",(r[0],)).fetchone()
+        if not v: continue
+        if v[0]:
+            with db() as c: c.execute('update pets set photo=? where id=?',(v[0],r[0]))
+        else: photo_from_video(r[0],v[1],v[2])
+threading.Thread(target=backfill_photos,daemon=True).start()
 FREE_GEN=1  # 별자리당 무료 미리보기 1회
 DAILY_CAP=int(os.environ.get('FREE_DAILY_CAP','30'))  # 전체 하루 무료 생성 상한
 PAID_PRICE=3900  # 원본(grok-imagine-video-1.5, 720p) — 결제 미연동
