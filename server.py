@@ -185,6 +185,23 @@ def bad(t): return any(w in t.replace(' ','') for w in BAD)
 PRES={}
 class H(http.server.SimpleHTTPRequestHandler):
     def __init__(s,*a,**k): super().__init__(*a,directory=D,**k)
+    # 앱인토스 미니앱(토스 WebView)에서 API를 부를 수 있도록 CORS 허용 (SDK 3.1+ / 3.0.x 도메인)
+    CORS_OK={'https://dasi-mannal-byeol.apps.tossmini.com','https://dasi-mannal-byeol.private-apps.tossmini.com',
+             'https://dasi-mannal-byeol.web.tossmini.com','https://dasi-mannal-byeol.private-web.tossmini.com'}
+    def end_headers(s):
+        o=s.headers.get('Origin','') if hasattr(s,'headers') and s.headers else ''
+        if o in s.CORS_OK:
+            s.send_header('Access-Control-Allow-Origin',o); s.send_header('Vary','Origin')
+            s.send_header('Access-Control-Expose-Headers','Content-Disposition')
+        super().end_headers()
+    def do_OPTIONS(s):
+        o=s.headers.get('Origin','')
+        s.send_response(204 if o in s.CORS_OK else 403)
+        if o in s.CORS_OK:
+            s.send_header('Access-Control-Allow-Methods','GET, POST, OPTIONS')
+            s.send_header('Access-Control-Allow-Headers','Content-Type, X-Edit-Key')
+            s.send_header('Access-Control-Max-Age','86400')
+        s.send_header('Content-Length','0'); s.end_headers()
     def js(s,o,code=200):
         b=json.dumps(o,ensure_ascii=False).encode(); s.send_response(code)
         s.send_header('Content-Type','application/json; charset=utf-8'); s.send_header('Content-Length',len(b)); s.end_headers(); s.wfile.write(b)
