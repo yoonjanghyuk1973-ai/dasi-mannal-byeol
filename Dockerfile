@@ -3,6 +3,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -r
 WORKDIR /app
 COPY server.py ./
 COPY static ./static
+COPY fonts ./fonts
 RUN mkdir -p uploads videos orig
 ENV PORT=10000
 CMD ["python","server.py"]

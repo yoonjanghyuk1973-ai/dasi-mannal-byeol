@@ -153,7 +153,7 @@ def run_job(vid,pet,style,src):
     try:
         ph=ensure_local(src) if src else ''
         fn=pv.generate(ph,PROMPTS[style]); pf='prev_'+fn
-        watermark(os.path.join(D,'orig',fn),os.path.join(D,'videos',pf)); store_put('videos/'+pf); store_put('orig/'+fn)
+        watermark(os.path.join(D,'orig',fn),os.path.join(D,'videos',pf),pet.get('name','')); store_put('videos/'+pf); store_put('orig/'+fn)
         with db() as c: c.execute("update videos set status='done',url=?,preview=?,orig=?,job=? where id=?",('/videos/'+pf,'/videos/'+pf,fn,json.dumps({'cost_usd':(getattr(pv,'last_cost',0) or 0)/1e10}),vid))
         print('video',vid,'done',pv.name,getattr(pv,'last_cost',None),flush=True)
     except Exception as e:
@@ -171,12 +171,23 @@ with db() as c:
 import secrets, zipfile, io, subprocess
 with db() as c:
     for (i,) in c.execute('select id from pets where ekey is null').fetchall(): c.execute('update pets set ekey=? where id=?',(secrets.token_urlsafe(12),i))
-FONT='/usr/share/fonts/truetype/sand-box/google/Gothic A1/GothicA1-Regular.ttf'
-def watermark(src,dst):
+FONT=os.path.join(os.path.dirname(os.path.abspath(__file__)),'fonts','GothicA1-Regular.ttf')  # 한글 폰트 번들 (Render엔 시스템 한글 폰트 없음)
+def watermark(src,dst,name=''):
     vf=("scale=360:-2,drawtext=fontfile='%s':text='다시만날별 미리보기':fontcolor=white@0.55:fontsize=22:x=(w-tw)/2:y=h*0.12,"
         "drawtext=fontfile='%s':text='PREVIEW':fontcolor=white@0.35:fontsize=46:x=(w-tw)/2:y=(h-th)/2")%(FONT,FONT)
+    nm=re.sub(r'^\[예시\]\s*','',name or '').strip()[:20]
+    if nm:  # 아이 이름(한글) 자막 — 특수문자 이스케이프 문제를 피하려고 textfile 사용
+        tf=dst+'.txt'; open(tf,'w',encoding='utf-8').write(nm+'와 함께 걷는 별길' if (ord(nm[-1])-0xAC00)%28==0 and '가'<=nm[-1]<='힣' else nm+'과 함께 걷는 별길')
+        vf+=",drawtext=fontfile='%s':textfile='%s':fontcolor=white@0.9:fontsize=24:borderw=2:bordercolor=black@0.4:x=(w-tw)/2:y=h*0.84"%(FONT,tf)
     r=subprocess.run(['ffmpeg','-y','-loglevel','error','-i',src,'-vf',vf,'-c:v','libx264','-crf','30','-preset','veryfast','-c:a','aac','-b:a','64k',dst],capture_output=True)
+    if nm:
+        try: os.remove(tf)
+        except OSError: pass
     if r.returncode: raise Exception('워터마크 실패: '+r.stderr.decode()[-200:])
+with db() as c:  # 사진 없이 영상만 만든 별자리: 영상 원본 사진을 대표사진으로 백필
+    for r in c.execute("select id from pets where coalesce(photo,'')='' and coalesce(example,0)=0").fetchall():
+        v=c.execute("select src from videos where pet_id=? and coalesce(src,'')!='' order by id desc limit 1",(r[0],)).fetchone()
+        if v: c.execute('update pets set photo=? where id=?',(v[0],r[0]))
 FREE_GEN=1  # 별자리당 무료 미리보기 1회
 DAILY_CAP=int(os.environ.get('FREE_DAILY_CAP','30'))  # 전체 하루 무료 생성 상한
 PAID_PRICE=3900  # 원본(grok-imagine-video-1.5, 720p) — 결제 미연동
@@ -336,6 +347,7 @@ class H(http.server.SimpleHTTPRequestHandler):
                 src=save_photo(b.get('photo')) or pet['photo'] or ''
                 pv=provider(); cur=c.execute("insert into videos(pet_id,status,provider,sample,created,style,src) values(?,?,?,?,?,?,?)",(m[1],'running',pv.name,pv.sample,time.time(),style,src))
                 vid=cur.lastrowid
+                if src and not pet['photo']: c.execute('update pets set photo=? where id=?',(src,m[1]))  # 별자리 별에 실제 사진 표시
             threading.Thread(target=run_job,args=(vid,dict(pet),style,src),daemon=True).start()
             return s.js({'id':vid,'provider':pv.name,'sample':pv.sample,'style':style})
         m=re.match(r'/api/pets/(\d+)/(candle|comments)$',p)
