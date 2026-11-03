@@ -254,7 +254,7 @@ let PZ=0,PZV=-1;function plaza(ps){const el=document.getElementById('plaza');if(
 const list=[...ps].sort((a,b)=>a.id-b.id),groups=[];let k=0,i=0;
 while(i<list.length){const c=consOf(k),g=list.slice(i,i+c.p.length);groups.push({c,g});i+=g.length;k++}
 if(!groups.length||groups[groups.length-1].g.length===groups[groups.length-1].c.p.length)groups.push({c:consOf(groups.length),g:[]});
-const cur=groups.length-1,done=cur,info=document.getElementById('pzinfo');
+const cur=groups.length-1,done=cur,def=done&&!groups[cur].g.length?done-1:cur,info=document.getElementById('pzinfo');
 const seen=+(localStorage.pzDone||0);let celebrate=done>seen&&done>0;localStorage.pzDone=done;
 function draw(gi,anim){if(id!==PZ)return;el.innerHTML='';const W=el.clientWidth,H=el.clientHeight;
 let s='';for(let q=0;q<36;q++){const x=(q*37%100),y=(q*53%90);s+=`<i class="st" style="left:${x}%;top:${y}%;animation-delay:${(q%7)*.45}s"></i>`}
@@ -267,13 +267,13 @@ const me=MINE.includes(+p.id),nm=esc(String(p.name).replace('[예시] ','')),sz=
 h+=`<div class="cs${me?' me':''}" data-id="${p.id}" style="left:${x}px;top:${y}px;--d:${(n*.7)%3}s"><div class="im" style="width:${sz}px;height:${sz}px"><div class="sk"><div class="in">${p.photo?`<img src="${p.photo}" alt="">`:`<div>${emo(p.species)}</div>`}</div></div></div><span class="lb">${p.example?'<em>예시</em>':''}${me?'<em class="m">우리 아이</em>':''}<b>${nm}</b></span></div>`});
 if(full)h+=`<div class="pzok">${c.t} 완성</div>`;
 el.innerHTML=h;el.querySelectorAll('.cs').forEach(d=>d.onclick=()=>go('#/pet/'+d.dataset.id));
-el.querySelectorAll('.mini').forEach(b=>b.onclick=()=>{PZV=+b.dataset.g===PZV?-1:+b.dataset.g;draw(PZV<0?cur:PZV,PZV>=0)});
+el.querySelectorAll('.mini').forEach(b=>b.onclick=()=>{PZV=+b.dataset.g===PZV?-1:+b.dataset.g;draw(PZV<0?def:PZV,PZV>=0)});
 fixLabels(el);
 const G=groups[cur],left=G.c.p.length-G.g.length;
-info.innerHTML=gi===cur?`<b>${G.c.t}</b> · 별자리 완성까지 <b>${left}</b>개${done?` <span>· 완성한 별자리 ${done}개</span>`:''}`:`<b>${c.t}</b> 완성 별자리를 보고 있어요 · <a href="javascript:void 0" id="pzback">지금 별자리로</a>`;
-const bk=document.getElementById('pzback');if(bk)bk.onclick=()=>{PZV=-1;draw(cur,0)}}
+info.innerHTML=gi===def&&def!==cur?`<b>${c.t}</b> 완성 · 다음 별자리 <b>${G.c.t}</b>까지 별 <b>${left}</b>개 남음`:gi===cur?`<b>${G.c.t}</b> · 별자리 완성까지 <b>${left}</b>개${done?` <span>· 완성한 별자리 ${done}개</span>`:''}`:`<b>${c.t}</b> 완성 별자리를 보고 있어요 · <a href="javascript:void 0" id="pzback">지금 별자리로</a>`;
+const bk=document.getElementById('pzback');if(bk)bk.onclick=()=>{PZV=-1;draw(def,0)}}
 function mini(c){return `<svg viewBox="-.1 -.1 1.2 1.2" width="34" height="26">${c.l.map(([a,b])=>`<line x1="${c.p[a][0]}" y1="${c.p[a][1]}" x2="${c.p[b][0]}" y2="${c.p[b][1]}"/>`).join('')}${c.p.map(([x,y])=>`<circle cx="${x}" cy="${y}" r=".07"/>`).join('')}</svg>`}
-PZV=-1;if(celebrate){draw(done-1,1);setTimeout(()=>{if(PZV<0)draw(cur,0)},3200)}else draw(cur,0)}
+PZV=-1;if(celebrate){draw(done-1,1);setTimeout(()=>{if(PZV<0)draw(def,0)},3200)}else draw(def,0)}
 function fixLabels(el){const L=[...el.querySelectorAll('.cs')],r=e=>e.getBoundingClientRect(),hit=(a,b)=>a.left<b.right+2&&b.left<a.right+2&&a.top<b.bottom+2&&b.top<a.bottom+2;
 const obs=()=>L.map(d=>r(d.querySelector('.im'))).concat([...el.querySelectorAll('.pzdone,.pzok')].map(r));
 L.forEach((d,n)=>{const lb=d.querySelector('.lb');const bad=()=>{const a=r(lb),o=obs(),pr=r(el);if(a.left<pr.left||a.right>pr.right||a.bottom>pr.bottom)return 1;return o.some((b,m)=>m!==n&&hit(a,b))||L.some((e,m)=>m<n&&hit(a,r(e.querySelector('.lb'))))};
