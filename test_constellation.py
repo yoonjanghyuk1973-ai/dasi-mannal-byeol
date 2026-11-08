@@ -1,4 +1,4 @@
-import pathlib, subprocess, unittest
+import pathlib, subprocess, sys, unittest, zipfile
 
 ROOT = pathlib.Path(__file__).resolve().parent
 HTML = (ROOT / 'static' / 'index.html').read_text(encoding='utf-8')
@@ -69,6 +69,13 @@ class ConstellationView(unittest.TestCase):
         self.assertIn("j.generated===false", HTML)
         self.assertNotIn("샘플 영상입니다. 실제 AI 생성이 아니에요.", HTML)
         self.assertNotIn("이 영상은 AI가 상상으로 만든 장면이에요", HTML)
+        self.assertIn("endsWith('tossmini.com')", HTML)
+        self.assertIn("https://dasi-mannal-byeol.onrender.com", HTML)
+        self.assertIn("#/notes", HTML)
+        self.assertIn("2026.11.08", HTML)
+        self.assertNotIn("정상화 완료", HTML)
+        self.assertNotIn("Pillow", HTML)
+        self.assertNotIn("XAI_", HTML)
         self.assertIn("groups.slice(0,done)", HTML)
         self.assertIn('지금 별자리로', HTML)
         self.assertNotIn('#/constellation', HTML)
@@ -86,6 +93,16 @@ class ConstellationView(unittest.TestCase):
         self.assertIn('${G.c.t}', draw)
         self.assertIn("done?", draw)
         self.assertIn('.plaza .pzdone{position:absolute;left:8px;right:8px;top:8px;', HTML)
+
+    def test_web_bundle_is_the_same_page(self):
+        import tempfile
+        dest = pathlib.Path(tempfile.mkstemp(suffix='.zip')[1])
+        subprocess.run([sys.executable, str(ROOT / 'scripts' / 'build_web_bundle.py'), str(dest)], check=True)
+        with zipfile.ZipFile(dest) as z:
+            self.assertEqual(z.namelist(), ['index.html'])
+            packed = z.read('index.html').decode('utf-8')
+        self.assertEqual(packed, HTML)
+        dest.unlink()
 
 
 if __name__ == '__main__':

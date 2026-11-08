@@ -15,3 +15,18 @@ GitHub는 저장소에 60일 동안 활동(커밋, 이슈, 풀 리퀘스트 등)
 신규 별자리 수는 https://dasi-mannal-byeol.onrender.com/#/admin 에서 확인합니다. API는 `GET /api/admin/summary` 이고, 헤더 `X-Admin-Token`이 환경 변수 `ADMIN_TOKEN`과 같아야 합니다. 응답은 예시가 아닌 별자리의 개수, 공개 범위별 개수, 최근 24시간·7일 개수, 가장 최근 등록 시각만 담습니다. 광장과 `GET /api/pets`에는 전체공개 별자리만 나옵니다.
 
 같은 토큰을 쓰는 기존 관리 API는 `POST /api/admin/rewatermark/<id>` 입니다.
+
+## 토스 앱과 웹
+
+화면은 `static/index.html` 하나입니다. Render는 이 파일을 `https://dasi-mannal-byeol.onrender.com/` 에서 줍니다. 토스 앱은 콘솔에 올려 둔 웹 번들을 `*.tossmini.com` 에서 엽니다. 이 저장소에는 granite 설정이 없고, Render 배포만으로는 이미 올라간 토스 번들이 바뀌지 않습니다.
+
+토스에서 열릴 때는 같은 파일이 `https://dasi-mannal-byeol.onrender.com` 의 API와 사진·영상을 사용합니다. 웹에서 열릴 때는 같은 주소의 상대 경로를 사용합니다.
+
+`python3 scripts/build_web_bundle.py dist/web-bundle.zip` 가 그 HTML을 `index.html` 로 담습니다. `.ait` 묶음은 앱인토스 빌드(`granite build`)로만 만들고, 콘솔 업로드·검토·출시는 이 저장소 밖에서 합니다.
+
+같은 버전인지 보려면 두 화면 모두에서 다음을 확인합니다.
+
+- 상단 `업데이트`가 있고, `2026.11.08` 노트에 북두칠성 선과 산책 안내가 있다.
+- 예시 별은 밤하늘 칸에 없고, 빈칸이 있어도 북두칠성 선이 있다.
+- 토스 화면의 목록 요청 주소는 `https://dasi-mannal-byeol.onrender.com/api/pets` 이다.
+

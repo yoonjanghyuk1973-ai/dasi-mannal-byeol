@@ -257,6 +257,9 @@ class H(http.server.SimpleHTTPRequestHandler):
         if o in s.CORS_OK:
             s.send_header('Access-Control-Allow-Origin',o); s.send_header('Vary','Origin')
             s.send_header('Access-Control-Expose-Headers','Content-Disposition')
+        path=urlparse(getattr(s,'path','') or '').path
+        if path.endswith('.html') or path in ('/','/static/index.html'):
+            s.send_header('Cache-Control','no-store')
         super().end_headers()
     def do_OPTIONS(s):
         o=s.headers.get('Origin','')

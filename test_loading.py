@@ -153,6 +153,16 @@ class LoadingBehavior(unittest.TestCase):
         ex_code, _ex = js('/api/pets/1/videos', method='POST', payload=json.dumps({'style': 'walk'}).encode(), headers={'Content-Type': 'application/json'})
         self.assertEqual(ex_code, 403)
 
+    def test_html_is_not_cached_and_has_update_notes(self):
+        req = urllib.request.Request('http://127.0.0.1:%d/' % PORT)
+        with urllib.request.urlopen(req, timeout=3) as r:
+            cache = r.headers.get('Cache-Control') or ''
+            body = r.read().decode('utf-8')
+        self.assertIn('no-store', cache)
+        self.assertIn('업데이트', body)
+        self.assertIn('2026.11.08', body)
+        self.assertNotIn('정상화 완료', body)
+
     def test_failed_walk_can_retry_without_a_second_running_job(self):
         server.boot()
         with server.db() as c:
