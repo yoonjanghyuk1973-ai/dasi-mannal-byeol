@@ -1,4 +1,5 @@
-import json, os, socket, tempfile, threading, time, unittest, urllib.error, urllib.request
+import base64, io, json, os, socket, tempfile, threading, time, unittest, urllib.error, urllib.request
+from pathlib import Path
 
 fd, DB = tempfile.mkstemp(prefix='memorial-test-', suffix='.db')
 os.close(fd)
@@ -113,6 +114,119 @@ class LoadingBehavior(unittest.TestCase):
         wrong, denied = js('/api/admin/summary', {'X-Admin-Token': 'nope'})
         self.assertEqual(wrong, 403)
         self.assertNotIn('real_total', denied)
+
+    def test_walk_without_provider_does_not_play_a_sample_as_the_pet(self):
+        os.environ.pop('XAI_API_KEY', None)
+        os.environ.pop('XAI_MOCK', None)
+        server.boot()
+        with server.db() as c:
+            c.execute('delete from gen_log')
+        code, made = js('/api/pets', method='POST', payload=json.dumps({
+            'name': '로컬산책', 'visibility': 'public', 'species': '강아지', 'letter': '로컬편지', 'owner': '로컬보호',
+        }).encode(), headers={'Content-Type': 'application/json'})
+        self.assertEqual(code, 200)
+        pid = made['id']
+        with server.db() as c:
+            c.execute('update pets set photo=? where id=?', ('/static/samples/pet_kongi.jpg', pid))
+            before = dict(c.execute('select photo,letter,owner,visibility,ekey from pets where id=?', (pid,)).fetchone())
+        code, job = js('/api/pets/%s/videos' % pid, method='POST', payload=json.dumps({'style': 'walk', 'cid': 'walk-test'}).encode(), headers={'Content-Type': 'application/json'})
+        self.assertEqual(code, 503)
+        self.assertEqual(job.get('generated'), False)
+        self.assertEqual(job.get('provider'), 'unavailable')
+        self.assertNotIn('url', job)
+        self.assertNotIn(before['letter'], json.dumps(job, ensure_ascii=False))
+        with server.db() as c:
+            c.execute("insert into videos(pet_id,status,provider,sample,created,style,src,url) values(?,?,?,?,?,?,?,?)", (pid, 'done', 'xai', 0, time.time(), 'walk', before['photo'], '/videos/local-test.mp4'))
+            kept = c.execute("select id from videos where pet_id=? and style='walk' and coalesce(sample,0)=0", (pid,)).fetchone()
+        again_code, again = js('/api/pets/%s/videos' % pid, method='POST', payload=json.dumps({'style': 'walk', 'cid': 'walk-test'}).encode(), headers={'Content-Type': 'application/json'})
+        self.assertEqual(again_code, 200)
+        self.assertEqual(again.get('id'), kept['id'])
+        self.assertEqual(again.get('reused'), 1)
+        self.assertEqual(again.get('sample'), 0)
+        with server.db() as c:
+            after = dict(c.execute('select photo,letter,owner,visibility,ekey from pets where id=?', (pid,)).fetchone())
+            rows = c.execute("select count(*) from videos where pet_id=? and style='walk'", (pid,)).fetchone()[0]
+            logs = c.execute('select count(*) from gen_log where pet_id=?', (pid,)).fetchone()[0]
+        self.assertEqual(after, before)
+        self.assertEqual(rows, 1)
+        self.assertEqual(logs, 0)
+        ex_code, _ex = js('/api/pets/1/videos', method='POST', payload=json.dumps({'style': 'walk'}).encode(), headers={'Content-Type': 'application/json'})
+        self.assertEqual(ex_code, 403)
+
+    def test_failed_walk_can_retry_without_a_second_running_job(self):
+        server.boot()
+        with server.db() as c:
+            c.execute('delete from gen_log')
+        code, made = js('/api/pets', method='POST', payload=json.dumps({
+            'name': '로컬재시도', 'visibility': 'public', 'species': '고양이', 'letter': '유지편지', 'owner': '유지보호',
+        }).encode(), headers={'Content-Type': 'application/json'})
+        self.assertEqual(code, 200)
+        pid = made['id']
+        with server.db() as c:
+            c.execute('update pets set photo=? where id=?', ('/static/samples/pet_nabi.jpg', pid))
+            before = dict(c.execute('select photo,letter,owner,visibility,ekey from pets where id=?', (pid,)).fetchone())
+        os.environ['XAI_API_KEY'] = 'local-test-only'
+        os.environ.pop('XAI_MOCK', None)
+        def boom(s, photo_path, prompt):
+            raise RuntimeError('forced')
+        old = server.XaiProvider.generate
+        server.XaiProvider.generate = boom
+        try:
+            code, job = js('/api/pets/%s/videos' % pid, method='POST', payload=json.dumps({'style': 'walk', 'cid': 'retry-test'}).encode(), headers={'Content-Type': 'application/json'})
+            self.assertEqual(code, 200)
+            deadline = time.time() + 10
+            status = 'running'
+            while time.time() < deadline and status == 'running':
+                time.sleep(0.15)
+                status = js('/api/videos/%s' % job['id'])[1].get('status')
+        finally:
+            server.XaiProvider.generate = old
+            os.environ.pop('XAI_API_KEY', None)
+        self.assertEqual(status, 'error')
+        with server.db() as c:
+            logs = c.execute('select count(*) from gen_log where pet_id=?', (pid,)).fetchone()[0]
+            after = dict(c.execute('select photo,letter,owner,visibility,ekey from pets where id=?', (pid,)).fetchone())
+        self.assertEqual(logs, 0)
+        self.assertEqual(after, before)
+        os.environ['XAI_API_KEY'] = 'local-test-only'
+        def local_clip(s, photo_path, prompt):
+            fn = 'local_ok.mp4'
+            shutil_copy = __import__('shutil').copy
+            shutil_copy(os.path.join(server.D, 'static', 'samples', 'sample_walk.mp4'), os.path.join(server.D, 'orig', fn))
+            s.last_cost = 0
+            return fn
+        server.XaiProvider.generate = local_clip
+        try:
+            code, retry = js('/api/pets/%s/videos' % pid, method='POST', payload=json.dumps({'style': 'walk', 'cid': 'retry-b'}).encode(), headers={'Content-Type': 'application/json'})
+            self.assertEqual(code, 200)
+            self.assertNotEqual(retry.get('id'), job['id'])
+            self.assertIsNone(retry.get('reused'))
+        finally:
+            server.XaiProvider.generate = old
+            os.environ.pop('XAI_API_KEY', None)
+        with server.db() as c:
+            after = dict(c.execute('select photo,letter,owner,visibility,ekey from pets where id=?', (pid,)).fetchone())
+            running = c.execute("select count(*) from videos where pet_id=? and status='running'", (pid,)).fetchone()[0]
+        self.assertEqual(after, before)
+        self.assertEqual(running, 1)
+
+    def test_photo_request_keeps_background_and_needs_pillow(self):
+        from PIL import Image
+        self.assertIn('pillow==11.3.0', Path(__file__).resolve().parent.joinpath('Dockerfile').read_text(encoding='utf-8'))
+        self.assertIn('original background', server.PROMPTS['walk'])
+        self.assertIn('original background', server.PROMPTS['play'])
+        self.assertNotIn('night sky', server.PROMPTS['walk'].lower())
+        self.assertNotIn('star', server.PROMPTS['walk'].lower())
+        fd, path = tempfile.mkstemp(suffix='.jpg')
+        os.close(fd)
+        Image.new('RGB', (640, 320), (12, 34, 56)).save(path, 'JPEG')
+        try:
+            uri = server.XaiProvider('local-test-only')._image(path)
+        finally:
+            os.remove(path)
+        self.assertTrue(uri.startswith('data:image/jpeg;base64,'))
+        out = Image.open(io.BytesIO(base64.b64decode(uri.split(',', 1)[1])))
+        self.assertAlmostEqual(out.width / out.height, 2.0, places=2)
 
     def test_seeded_examples_remain_stored_after_public_reads(self):
         server.boot()
