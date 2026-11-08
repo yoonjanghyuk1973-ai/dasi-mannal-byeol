@@ -114,6 +114,91 @@ class LoadingBehavior(unittest.TestCase):
         self.assertEqual(wrong, 403)
         self.assertNotIn('real_total', denied)
 
+    def test_walk_reuses_one_job_and_keeps_memorial_fields(self):
+        os.environ['DEMO_DELAY'] = '0'
+        os.environ.pop('XAI_API_KEY', None)
+        os.environ.pop('XAI_MOCK', None)
+        server.boot()
+        with server.db() as c:
+            c.execute('delete from gen_log')
+        code, made = js('/api/pets', method='POST', payload=json.dumps({
+            'name': '로컬산책', 'visibility': 'public', 'species': '강아지', 'letter': '로컬편지', 'owner': '로컬보호',
+        }).encode(), headers={'Content-Type': 'application/json'})
+        self.assertEqual(code, 200)
+        pid = made['id']
+        with server.db() as c:
+            c.execute('update pets set photo=? where id=?', ('/static/samples/pet_kongi.jpg', pid))
+            before = dict(c.execute('select photo,letter,owner,visibility,ekey from pets where id=?', (pid,)).fetchone())
+        code, job = js('/api/pets/%s/videos' % pid, method='POST', payload=json.dumps({'style': 'walk', 'cid': 'walk-test'}).encode(), headers={'Content-Type': 'application/json'})
+        self.assertEqual(code, 200)
+        self.assertEqual(job.get('provider'), 'demo')
+        self.assertEqual(job.get('sample'), 1)
+        self.assertEqual(job.get('style'), 'walk')
+        self.assertEqual(job.get('status'), 'running')
+        again_code, again = js('/api/pets/%s/videos' % pid, method='POST', payload=json.dumps({'style': 'walk', 'cid': 'walk-test'}).encode(), headers={'Content-Type': 'application/json'})
+        self.assertEqual(again_code, 200)
+        self.assertEqual(again.get('id'), job['id'])
+        self.assertEqual(again.get('reused'), 1)
+        deadline = time.time() + 20
+        status = 'running'
+        video = {}
+        while time.time() < deadline and status == 'running':
+            time.sleep(0.2)
+            st, video = js('/api/videos/%s' % job['id'])
+            self.assertEqual(st, 200)
+            status = video.get('status')
+        self.assertEqual(status, 'done', video.get('error'))
+        self.assertTrue(str(video.get('url') or '').endswith('.mp4'))
+        self.assertEqual(video.get('sample'), 1)
+        with server.db() as c:
+            after = dict(c.execute('select photo,letter,owner,visibility,ekey from pets where id=?', (pid,)).fetchone())
+            rows = c.execute("select id from videos where pet_id=? and style='walk' and status!='error'", (pid,)).fetchall()
+        self.assertEqual(after, before)
+        self.assertEqual(len(rows), 1)
+        ex_code, ex = js('/api/pets/1/videos', method='POST', payload=json.dumps({'style': 'walk'}).encode(), headers={'Content-Type': 'application/json'})
+        self.assertEqual(ex_code, 403)
+
+    def test_failed_walk_can_retry_without_a_second_running_job(self):
+        os.environ['DEMO_DELAY'] = '0'
+        server.boot()
+        with server.db() as c:
+            c.execute('delete from gen_log')
+        code, made = js('/api/pets', method='POST', payload=json.dumps({
+            'name': '로컬재시도', 'visibility': 'public', 'species': '고양이', 'letter': '유지편지', 'owner': '유지보호',
+        }).encode(), headers={'Content-Type': 'application/json'})
+        self.assertEqual(code, 200)
+        pid = made['id']
+        with server.db() as c:
+            c.execute('update pets set photo=? where id=?', ('/static/samples/pet_nabi.jpg', pid))
+            before = dict(c.execute('select photo,letter,owner,visibility,ekey from pets where id=?', (pid,)).fetchone())
+        def boom(photo_path, prompt):
+            raise RuntimeError('forced')
+        old = server.DemoProvider.generate
+        server.DemoProvider.generate = boom
+        try:
+            code, job = js('/api/pets/%s/videos' % pid, method='POST', payload=json.dumps({'style': 'walk', 'cid': 'retry-test'}).encode(), headers={'Content-Type': 'application/json'})
+            self.assertEqual(code, 200)
+            deadline = time.time() + 10
+            status = 'running'
+            while time.time() < deadline and status == 'running':
+                time.sleep(0.15)
+                status = js('/api/videos/%s' % job['id'])[1].get('status')
+        finally:
+            server.DemoProvider.generate = old
+        self.assertEqual(status, 'error')
+        with server.db() as c:
+            logs = c.execute('select count(*) from gen_log where pet_id=?', (pid,)).fetchone()[0]
+        self.assertEqual(logs, 0)
+        code, retry = js('/api/pets/%s/videos' % pid, method='POST', payload=json.dumps({'style': 'walk', 'cid': 'retry-b'}).encode(), headers={'Content-Type': 'application/json'})
+        self.assertEqual(code, 200)
+        self.assertNotEqual(retry.get('id'), job['id'])
+        self.assertEqual(retry.get('reused'), None)
+        with server.db() as c:
+            after = dict(c.execute('select photo,letter,owner,visibility,ekey from pets where id=?', (pid,)).fetchone())
+            running = c.execute("select count(*) from videos where pet_id=? and status='running'", (pid,)).fetchone()[0]
+        self.assertEqual(after, before)
+        self.assertEqual(running, 1)
+
     def test_seeded_examples_remain_stored_after_public_reads(self):
         server.boot()
         with server.db() as c:

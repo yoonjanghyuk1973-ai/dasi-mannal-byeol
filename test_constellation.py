@@ -12,7 +12,7 @@ def groups_source():
 
 CASES = r'''
 const src = process.argv[1];
-eval(src);
+eval(src+'\nif(CONS[0].n!=="북두칠성"||CONS[0].p.length!==7||CONS[0].l.length!==7) throw new Error("dipper frame")');
 function plan(ps){
   const {groups,cur,done,def}=constellationGroups(ps);
   return {
@@ -61,6 +61,12 @@ class ConstellationView(unittest.TestCase):
     def test_switcher_matches_the_page_source(self):
         src = groups_source()
         self.assertIn("filter(p=>!p.example)", src)
+        self.assertNotIn("${full?c.l.map", HTML)
+        self.assertIn("c.l.map(([a,b])=>`<line", HTML)
+        self.assertNotIn("별길은 따뜻하니", HTML)
+        self.assertIn("style:'walk'", HTML)
+        self.assertIn("샘플 영상입니다. 실제 AI 생성이 아니에요.", HTML)
+        self.assertNotIn("이 영상은 AI가 상상으로 만든 장면이에요", HTML)
         self.assertIn("groups.slice(0,done)", HTML)
         self.assertIn('지금 별자리로', HTML)
         self.assertNotIn('#/constellation', HTML)

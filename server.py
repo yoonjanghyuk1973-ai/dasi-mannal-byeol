@@ -107,7 +107,7 @@ PROMPTS={'walk':PROMPT,'play':("Animate this exact photo as the first frame. Kee
 class DemoProvider:
     name='demo'; sample=1
     def generate(s,photo_path,prompt):
-        time.sleep(6)  # 생성 대기 시뮬레이션
+        time.sleep(float(os.environ.get('DEMO_DELAY','6')))  # 키 없을 때의 대기. 실제 xAI 호출이 아님
         fn='sample_'+uuid.uuid4().hex[:8]+'.mp4'
         shutil.copy(os.path.join(D,'static','samples','sample_walk.mp4'),os.path.join(D,'orig',fn)); return fn
 class XaiProvider:
@@ -444,18 +444,21 @@ class H(http.server.SimpleHTTPRequestHandler):
                 if not pet: return s.js({'error':'없음'},404)
                 if not s.can_view(pet): return s.js({'error':'비공개 별자리예요'},403)
                 if pet['example']: return s.js({'error':'예시 별자리는 영상을 만들 수 없어요. 내 아이 별자리를 만들어 주세요 🐾'},403)
+                style=b.get('style') if b.get('style') in PROMPTS else 'play'
+                exist=c.execute("select id,status,provider,sample,style from videos where pet_id=? and style=? and status!='error' order by id desc limit 1",(m[1],style)).fetchone()
+                if exist: return s.js({'id':exist['id'],'provider':exist['provider'],'sample':exist['sample'],'style':exist['style'],'status':exist['status'],'reused':1})
                 if c.execute("select count(*) from videos where pet_id=? and status!='error' and (preview is not null or status='running')",(m[1],)).fetchone()[0]>=FREE_GEN: return s.js({'error':'이 별자리의 무료 미리보기를 이미 사용했어요'},402)
                 day=time.strftime('%Y-%m-%d'); ip=(s.headers.get('X-Forwarded-For') or s.client_address[0]).split(',')[0].strip(); cid=str(b.get('cid') or '')[:40]
                 if c.execute('select count(*) from gen_log where day=? and (ip=? or (length(cid)>0 and cid=?))',(day,ip,cid)).fetchone()[0]>=1: return s.js({'error':'무료 미리보기는 하루에 한 번만 만들 수 있어요. 내일 다시 찾아와 주세요 🌙'},429)
                 if c.execute('select count(*) from gen_log where day=?',(day,)).fetchone()[0]>=DAILY_CAP: return s.js({'error':'오늘 준비된 무료 미리보기가 모두 소진됐어요. 내일 다시 시도해 주세요 🌙'},429)
                 c.execute('insert into gen_log(day,ip,cid,pet_id,created) values(?,?,?,?,?)',(day,ip,cid,m[1],time.time()))
-                style=b.get('style') if b.get('style') in PROMPTS else 'play'
                 src=save_photo(b.get('photo')) or pet['photo'] or ''
-                pv=provider(); cur=c.execute("insert into videos(pet_id,status,provider,sample,created,style,src) values(?,?,?,?,?,?,?)",(m[1],'running',pv.name,pv.sample,time.time(),style,src))
+                pv=provider(); sample=1 if pv.name=='demo' or os.environ.get('XAI_MOCK') else pv.sample
+                cur=c.execute("insert into videos(pet_id,status,provider,sample,created,style,src) values(?,?,?,?,?,?,?)",(m[1],'running',pv.name,sample,time.time(),style,src))
                 vid=cur.lastrowid
                 if src and not pet['photo']: c.execute('update pets set photo=? where id=?',(src,m[1]))  # 별자리 별에 실제 사진 표시
             threading.Thread(target=run_job,args=(vid,dict(pet),style,src),daemon=True).start()
-            return s.js({'id':vid,'provider':pv.name,'sample':pv.sample,'style':style})
+            return s.js({'id':vid,'provider':pv.name,'sample':sample,'style':style,'status':'running'})
         m=re.match(r'/api/pets/(\d+)/(candle|comments)$',p)
         if m:
             with db() as c:
