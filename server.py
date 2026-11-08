@@ -2,6 +2,7 @@ import http.server, json, sqlite3, os, base64, uuid, re, time
 from urllib.parse import urlparse
 D=os.path.dirname(os.path.abspath(__file__)); DB=os.environ.get('MEMORIAL_DB') or os.path.join(D,'memorial.db')
 SB=os.environ.get('SUPABASE_URL','').rstrip('/'); SBK=os.environ.get('SUPABASE_SERVICE_KEY',''); PGURL=bool(SB and SBK)
+RPC_TIMEOUT=float(os.environ.get('DB_TIMEOUT','12'))
 class Row(dict):
     def __init__(s,cols,vals): super().__init__(zip(cols,vals)); s._v=list(vals)
     def __getitem__(s,k): return s._v[k] if isinstance(k,int) else dict.__getitem__(s,k)
@@ -19,10 +20,11 @@ def _lit(v):
     if isinstance(v,(int,float)): return repr(v)
     return "'"+str(v).replace("\x00","").replace("'","''")+"'"
 def _rpc(q):
-    import urllib.request
+    import urllib.request, urllib.error
     r=urllib.request.Request(SB+'/rest/v1/rpc/exec_sql',json.dumps({'q':q}).encode(),{'Authorization':'Bearer '+SBK,'apikey':SBK,'Content-Type':'application/json'})
-    try: return json.loads(urllib.request.urlopen(r,timeout=30).read() or b'null')
+    try: return json.loads(urllib.request.urlopen(r,timeout=RPC_TIMEOUT).read() or b'null')
     except urllib.error.HTTPError as e: raise Exception('db: '+e.read().decode()[:300])
+    except Exception: raise Exception('db unavailable')
 class PCur:
     def __init__(s,rows,rid=None): s.rows=[Row(list(x.keys()),list(x.values())) for x in (rows or [])]; s.lastrowid=rid
     def fetchone(s): return s.rows[0] if s.rows else None
@@ -45,16 +47,13 @@ def db():
     if PGURL: return PConn()
     c=sqlite3.connect(DB); c.row_factory=sqlite3.Row; return c
 PK='bigserial primary key' if PGURL else 'integer primary key'
-with db() as c:
-    c.executescript(f"""create table if not exists pets(id {PK},name text,species text,birth text,passed text,photo text,letter text,owner text,candles integer default 0,example integer default 0,created double precision,ekey text,visibility text default 'public');
+SCHEMA=f"""create table if not exists pets(id {PK},name text,species text,birth text,passed text,photo text,letter text,owner text,candles integer default 0,example integer default 0,created double precision,ekey text,visibility text default 'public');
     create table if not exists videos(id {PK},pet_id int,status text,provider text,url text,sample integer default 0,error text,job text,created double precision,style text default 'walk',src text,preview text,orig text);
     create table if not exists comments(id {PK},pet_id int,author text,body text,created double precision);
     create table if not exists posts(id {PK},kind text,pet_id int,nick text,body text,photo text,need integer default 0,r1 integer default 0,r2 integer default 0,reports integer default 0,hidden integer default 0,example integer default 0,created double precision);
     create table if not exists replies(id {PK},post_id int,nick text,body text,created double precision);
     create table if not exists events(id {PK},pet_id int,name text,created double precision);
-    create table if not exists gen_log(id {PK},day text,ip text,cid text,pet_id int,created double precision)""")
-    if PGURL:
-        for _t in ('pets','videos','comments','posts','replies','events','gen_log'): c.execute(f'alter table {_t} enable row level security')
+    create table if not exists gen_log(id {PK},day text,ip text,cid text,pet_id int,created double precision)"""
 # --- Supabase Storage (영구 파일 저장) ---
 def sb_req(method,path,data=None,ctype='application/json'):
     import urllib.request
@@ -73,10 +72,11 @@ def ensure_local(rel):
         except Exception as e: print('storage get fail',rel,e,flush=True)
     return fp
 for _d in ('uploads','videos','orig'): os.makedirs(os.path.join(D,_d),exist_ok=True)
-if SB:
+def boot_storage():
+    if not SB: return
     for _b,_pub in (('media',True),('orig',False)):
         try: sb_req('POST','/storage/v1/bucket',json.dumps({'id':_b,'name':_b,'public':_pub}).encode())
-        except Exception: pass
+        except Exception: print('storage boot fail',_b,flush=True)
 def save_photo(data):
     if not data: return ''
     m=re.match(r'data:image/(\w+);base64,(.*)',data,re.S)
@@ -84,18 +84,18 @@ def save_photo(data):
     ext=m.group(1).replace('jpeg','jpg'); raw=base64.b64decode(m.group(2))
     if len(raw)>8_000_000: return ''
     fn=uuid.uuid4().hex+'.'+ext; open(os.path.join(D,'uploads',fn),'wb').write(raw); store_put('uploads/'+fn); return '/uploads/'+fn
-with db() as c:  # 예시 별자리 시드 (비어 있을 때만)
-    if not c.execute('select count(*) from pets').fetchone()[0]:
-        now=time.time()
-        for n,sp,b,ps,ph,lt,ow,cd in [('[예시] 콩이','강아지','2012-03-14','2025-09-02','kongi','콩이야, 산책길마다 네 발자국이 생각나. 별에서는 마음껏 뛰어놀아.','콩이 누나',27),
-            ('[예시] 나비','고양이','2010-06-01','2025-05-20','nabi','나비야, 아침 햇살 자리는 아직 네 자리야. 고마웠어.','집사',19),
-            ('[예시] 솜이','토끼','2018-04-10','2025-11-30','somi','솜이야, 작은 몸으로 큰 행복을 줘서 고마워.','엄마',12),
-            ('[예시] 두부','강아지','2011-01-22','2026-02-14','dubu','두부야, 꼬리 흔들며 반겨주던 현관이 아직 따뜻해.','두부 아빠',15),
-            ('[예시] 미미','고양이','2013-08-08','2026-06-03','mimi','미미야, 골골송이 그리운 밤이야. 별에서 편히 쉬어.','미미 언니',9),
-            ('[예시] 보리','강아지','2009-10-05','2025-12-24','bori','보리야, 함께한 16년 모두 선물이었어.','보리네 가족',22)]:
-            pid=c.execute('insert into pets(name,species,birth,passed,photo,letter,owner,candles,example,created) values(?,?,?,?,?,?,?,?,1,?)',(n,sp,b,ps,'/static/samples/pet_'+ph+'.jpg',lt,ow,cd,now)).lastrowid
-            for a,t in [('[예시] 별지기','좋은 곳에서 편히 쉬렴 🌟'),('[예시] 지나가던 집사','따뜻한 기억 나눠주셔서 고마워요 🤍')]:
-                c.execute('insert into comments(pet_id,author,body,created) values(?,?,?,?)',(pid,a,t,now-600))
+def seed_pets(c):
+    if c.execute('select count(*) from pets').fetchone()[0]: return
+    now=time.time()
+    for n,sp,b,ps,ph,lt,ow,cd in [('[예시] 콩이','강아지','2012-03-14','2025-09-02','kongi','콩이야, 산책길마다 네 발자국이 생각나. 별에서는 마음껏 뛰어놀아.','콩이 누나',27),
+        ('[예시] 나비','고양이','2010-06-01','2025-05-20','nabi','나비야, 아침 햇살 자리는 아직 네 자리야. 고마웠어.','집사',19),
+        ('[예시] 솜이','토끼','2018-04-10','2025-11-30','somi','솜이야, 작은 몸으로 큰 행복을 줘서 고마워.','엄마',12),
+        ('[예시] 두부','강아지','2011-01-22','2026-02-14','dubu','두부야, 꼬리 흔들며 반겨주던 현관이 아직 따뜻해.','두부 아빠',15),
+        ('[예시] 미미','고양이','2013-08-08','2026-06-03','mimi','미미야, 골골송이 그리운 밤이야. 별에서 편히 쉬어.','미미 언니',9),
+        ('[예시] 보리','강아지','2009-10-05','2025-12-24','bori','보리야, 함께한 16년 모두 선물이었어.','보리네 가족',22)]:
+        pid=c.execute('insert into pets(name,species,birth,passed,photo,letter,owner,candles,example,created) values(?,?,?,?,?,?,?,?,1,?)',(n,sp,b,ps,'/static/samples/pet_'+ph+'.jpg',lt,ow,cd,now)).lastrowid
+        for a,t in [('[예시] 별지기','좋은 곳에서 편히 쉬렴 🌟'),('[예시] 지나가던 집사','따뜻한 기억 나눠주셔서 고마워요 🤍')]:
+            c.execute('insert into comments(pet_id,author,body,created) values(?,?,?,?)',(pid,a,t,now-600))
 import threading, shutil, urllib.request, urllib.error, io
 PROMPT=("Vertical 9:16 dreamy night scene, about 10 seconds. The pet from the photo walks happily beside its owner "
  "along a softly glowing path of golden stars across a night sky, gentle sparkles and moonlight, warm and peaceful. "
@@ -161,16 +161,16 @@ def run_job(vid,pet,style,src):
         with db() as c:
             c.execute("update videos set status='error',error=? where id=?",(str(e)[:200],vid))
             c.execute('delete from gen_log where id=(select max(id) from gen_log where pet_id=?)',(pet['id'],))  # 실패 시 무료 횟수 돌려주기
-with db() as c:
-    if not c.execute('select count(*) from posts').fetchone()[0]:
-        now=time.time()
-        for k,pid,n,b,need,ph in [('comfort',None,'[예시] 콩이엄마','어제 콩이 산책 시간이 되니까 저절로 현관을 보게 되더라고요. 다들 이런 순간 어떻게 버티셨나요?',1,''),
-            ('comfort',None,'[예시] 별지기','무지개다리 건넌 아이들은 아프지 않은 곳에서 우리를 기다린대요. 오늘 하루도 잘 버틴 당신, 정말 잘하고 있어요.',0,''),
-            ('memory',2,'[예시] 집사','나비는 매일 아침 창가 햇살 자리에서 꼬리를 살랑였어요. 그 자리는 아직 비워두었어요.',0,(c.execute('select photo from pets where id=2').fetchone() or [''])[0])]:
-            cur=c.execute('insert into posts(kind,pet_id,nick,body,need,photo,example,created,r1,r2) values(?,?,?,?,?,?,1,?,3,5)',(k,pid,n,b,need,ph,now-3600))
-        c.execute('insert into replies(post_id,nick,body,created) values(1,?,?,?)',('[예시] 별지기','저도 그랬어요. 천천히 슬퍼해도 괜찮아요 🤍',now-1800))
+def seed_posts(c):
+    if c.execute('select count(*) from posts').fetchone()[0]: return
+    now=time.time()
+    for k,pid,n,b,need,ph in [('comfort',None,'[예시] 콩이엄마','어제 콩이 산책 시간이 되니까 저절로 현관을 보게 되더라고요. 다들 이런 순간 어떻게 버티셨나요?',1,''),
+        ('comfort',None,'[예시] 별지기','무지개다리 건넌 아이들은 아프지 않은 곳에서 우리를 기다린대요. 오늘 하루도 잘 버틴 당신, 정말 잘하고 있어요.',0,''),
+        ('memory',2,'[예시] 집사','나비는 매일 아침 창가 햇살 자리에서 꼬리를 살랑였어요. 그 자리는 아직 비워두었어요.',0,(c.execute('select photo from pets where id=2').fetchone() or [''])[0])]:
+        c.execute('insert into posts(kind,pet_id,nick,body,need,photo,example,created,r1,r2) values(?,?,?,?,?,?,1,?,3,5)',(k,pid,n,b,need,ph,now-3600))
+    c.execute('insert into replies(post_id,nick,body,created) values(1,?,?,?)',('[예시] 별지기','저도 그랬어요. 천천히 슬퍼해도 괜찮아요 🤍',now-1800))
 import secrets, zipfile, io, subprocess
-with db() as c:
+def fill_ekeys(c):
     for (i,) in c.execute('select id from pets where ekey is null').fetchall(): c.execute('update pets set ekey=? where id=?',(secrets.token_urlsafe(12),i))
 def _pick_font():  # 한글 폰트: 번들 → noto-cjk 백업. 없거나 깨졌으면 크게 로그
     cands=[os.path.join(os.path.dirname(os.path.abspath(__file__)),'fonts','GothicA1-Regular.ttf'),
@@ -218,6 +218,7 @@ def photo_from_video(pet_id,orig,preview):  # 사진 없는 별자리: 영상에
         print('pet',pet_id,'photo from video',fn,flush=True); return '/uploads/'+fn
     except Exception as e: print('photo_from_video fail',pet_id,e,flush=True); return ''
 def backfill_photos():
+    if not DB_READY.is_set(): return
     with db() as c: rows=c.execute("select id from pets where coalesce(photo,'')='' and coalesce(example,0)=0").fetchall()
     for r in rows:
         with db() as c: v=c.execute("select src,orig,preview from videos where pet_id=? and status='done' order by id desc limit 1",(r[0],)).fetchone()
@@ -225,7 +226,24 @@ def backfill_photos():
         if v[0]:
             with db() as c: c.execute('update pets set photo=? where id=?',(v[0],r[0]))
         else: photo_from_video(r[0],v[1],v[2])
-threading.Thread(target=backfill_photos,daemon=True).start()
+DB_READY=threading.Event(); _SIDE_STARTED=False
+def boot_db():
+    with db() as c:
+        c.executescript(SCHEMA)
+        if PGURL:
+            for _t in ('pets','videos','comments','posts','replies','events','gen_log'): c.execute(f'alter table {_t} enable row level security')
+    with db() as c: seed_pets(c)
+    with db() as c: seed_posts(c)
+    with db() as c: fill_ekeys(c)
+def boot():
+    # Schema and storage calls hit the network in production. They must not run before the port opens.
+    global _SIDE_STARTED
+    if not DB_READY.is_set():
+        boot_db(); DB_READY.set()
+    if _SIDE_STARTED: return
+    _SIDE_STARTED=True
+    threading.Thread(target=boot_storage,daemon=True).start()
+    threading.Thread(target=backfill_photos,daemon=True).start()
 FREE_GEN=1  # 별자리당 무료 미리보기 1회
 DAILY_CAP=int(os.environ.get('FREE_DAILY_CAP','30'))  # 전체 하루 무료 생성 상한
 PAID_PRICE=3900  # 원본(grok-imagine-video-1.5, 720p) — 결제 미연동
@@ -248,12 +266,12 @@ class H(http.server.SimpleHTTPRequestHandler):
         s.send_response(204 if o in s.CORS_OK else 403)
         if o in s.CORS_OK:
             s.send_header('Access-Control-Allow-Methods','GET, POST, OPTIONS')
-            s.send_header('Access-Control-Allow-Headers','Content-Type, X-Edit-Key')
+            s.send_header('Access-Control-Allow-Headers','Content-Type, X-Edit-Key, X-Admin-Token')
             s.send_header('Access-Control-Max-Age','86400')
         s.send_header('Content-Length','0'); s.end_headers()
     def js(s,o,code=200):
         b=json.dumps(o,ensure_ascii=False).encode(); s.send_response(code)
-        s.send_header('Content-Type','application/json; charset=utf-8'); s.send_header('Content-Length',len(b)); s.end_headers(); s.wfile.write(b)
+        s.send_header('Content-Type','application/json; charset=utf-8'); s.send_header('Cache-Control','no-store'); s.send_header('Content-Length',len(b)); s.end_headers(); s.wfile.write(b)
     def key(s):
         from urllib.parse import parse_qs
         return s.headers.get('X-Edit-Key') or (parse_qs(urlparse(s.path).query).get('key') or [''])[0]
@@ -261,8 +279,42 @@ class H(http.server.SimpleHTTPRequestHandler):
     def can_view(s,r): return r and (r['visibility']!='private' or secrets.compare_digest(s.key() or '-',r['ekey']))
     def body(s):
         n=int(s.headers.get('Content-Length',0)); return json.loads(s.rfile.read(n) or b'{}')
+    def api_fail(s):
+        try: return s.js({'error':'데이터를 불러오지 못했어요. 잠시 후 다시 시도해 주세요'},503)
+        except Exception: return
+    def admin_summary(s):
+        tok=os.environ.get('ADMIN_TOKEN','')
+        given=s.headers.get('X-Admin-Token') or ''
+        if not tok or not given or not secrets.compare_digest(given, tok): return s.js({'error':'forbidden'},403)
+        if not DB_READY.is_set(): return s.js({'error':'별자리 데이터를 아직 불러오지 못했어요. 잠시 후 다시 시도해 주세요','db':False},503)
+        now=time.time()
+        with db() as c:
+            r=c.execute("""select
+                coalesce(sum(case when coalesce(example,0)=0 then 1 else 0 end),0),
+                coalesce(sum(case when coalesce(example,0)!=0 then 1 else 0 end),0),
+                coalesce(sum(case when coalesce(example,0)=0 and created>=? then 1 else 0 end),0),
+                coalesce(sum(case when coalesce(example,0)=0 and created>=? then 1 else 0 end),0),
+                coalesce(sum(case when coalesce(example,0)=0 and coalesce(visibility,'public')='public' then 1 else 0 end),0),
+                coalesce(sum(case when coalesce(example,0)=0 and visibility='link' then 1 else 0 end),0),
+                coalesce(sum(case when coalesce(example,0)=0 and visibility='private' then 1 else 0 end),0),
+                max(case when coalesce(example,0)=0 then created end)
+                from pets""",(now-86400,now-7*86400)).fetchone()
+        num=lambda v: int(v or 0)
+        return s.js({'real_total':num(r[0]),'example_total':num(r[1]),'real_new_24h':num(r[2]),'real_new_7d':num(r[3]),
+            'real_public':num(r[4]),'real_link':num(r[5]),'real_private':num(r[6]),'newest_real_created':r[7],
+            'public_list_includes':'public','server_time':now})
     def do_GET(s):
         p=urlparse(s.path).path
+        try: return s._do_GET()
+        except Exception:
+            print('api get fail',p,flush=True)
+            if p.startswith('/api/'): return s.api_fail()
+            raise
+    def _do_GET(s):
+        p=urlparse(s.path).path
+        if p=='/api/health': return s.js({'ok':True,'db':DB_READY.is_set()})
+        if p=='/api/admin/summary': return s.admin_summary()
+        if p.startswith('/api/') and not DB_READY.is_set(): return s.js({'error':'별자리 데이터를 아직 불러오지 못했어요. 잠시 후 다시 시도해 주세요','db':False},503)
         if p=='/api/pets':
             with db() as c: return s.js([dict(r) for r in c.execute('select id,name,species,birth,passed,photo,candles,example from pets where coalesce(visibility,\'public\')=\'public\' order by example, id desc')])
         m=re.match(r'/api/pets/(\d+)$',p)
@@ -320,6 +372,13 @@ class H(http.server.SimpleHTTPRequestHandler):
         if p.startswith('/static/'): return super().do_GET()
         s.path='/static/index.html'; return super().do_GET()
     def do_POST(s):
+        p=urlparse(s.path).path
+        if p.startswith('/api/') and not DB_READY.is_set(): return s.js({'error':'별자리 데이터를 아직 불러오지 못했어요. 잠시 후 다시 시도해 주세요','db':False},503)
+        try: return s._do_POST()
+        except Exception:
+            print('api post fail',p,flush=True)
+            return s.api_fail()
+    def _do_POST(s):
         p=urlparse(s.path).path
         try: b=s.body()
         except Exception: return s.js({'error':'잘못된 요청'},400)
@@ -412,4 +471,13 @@ class H(http.server.SimpleHTTPRequestHandler):
                 c.execute('insert into comments(pet_id,author,body,created) values(?,?,?,?)',(m[1],(b.get('author') or '익명').strip()[:20] or '익명',t,time.time()))
             return s.js({'ok':1})
         s.js({'error':'not found'},404)
-http.server.ThreadingHTTPServer(('0.0.0.0',int(os.environ.get('PORT',8787))),H).serve_forever()
+def main():
+    def safe():
+        delay=1
+        while not DB_READY.is_set():
+            try: boot()
+            except Exception:
+                print('db boot fail',flush=True); time.sleep(delay); delay=min(delay*2,30)
+    threading.Thread(target=safe,name='boot',daemon=True).start()
+    http.server.ThreadingHTTPServer(('0.0.0.0',int(os.environ.get('PORT',8787))),H).serve_forever()
+if __name__=='__main__': main()
