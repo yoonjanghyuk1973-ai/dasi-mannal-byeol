@@ -97,19 +97,18 @@ def seed_pets(c):
         for a,t in [('[예시] 별지기','좋은 곳에서 편히 쉬렴 🌟'),('[예시] 지나가던 집사','따뜻한 기억 나눠주셔서 고마워요 🤍')]:
             c.execute('insert into comments(pet_id,author,body,created) values(?,?,?,?)',(pid,a,t,now-600))
 import threading, shutil, urllib.request, urllib.error, io
-PROMPT=("Vertical 9:16 dreamy night scene, about 10 seconds. The pet from the photo walks happily beside its owner "
- "along a softly glowing path of golden stars across a night sky, gentle sparkles and moonlight, warm and peaceful. "
- "At the end the owner kneels and hugs the pet tenderly. Soft cinematic, healing mood.")
-PROMPTS={'walk':PROMPT,'play':("Animate this exact photo as the first frame. Keep the original background, lighting, framing and the pet's exact "
+PROMPTS={'walk':("Animate this exact photo as the first frame. Keep the original background, lighting, framing and the pet's exact "
+ "appearance (breed, fur color, markings, face) unchanged. The pet walks naturally a few steps in this same place, "
+ "on the ground already visible in the photo. Do not replace the background, do not change the pet into a different animal, "
+ "and do not turn the photo into a slideshow. Natural, realistic motion, about 10 seconds."),
+ 'play':("Animate this exact photo as the first frame. Keep the original background, lighting, framing and the pet's exact "
  "appearance (breed, fur color, markings, face) unchanged. The pet comes alive in this same place: playing, running around, "
  "wagging its tail happily. The owner's hands and arms gently enter the frame to play with and pet it, and at the end the owner "
  "hugs the pet warmly. Natural, realistic motion, warm healing mood, vertical 9:16, about 10 seconds.")}
 class DemoProvider:
     name='demo'; sample=1
     def generate(s,photo_path,prompt):
-        time.sleep(float(os.environ.get('DEMO_DELAY','6')))  # 키 없을 때의 대기. 실제 xAI 호출이 아님
-        fn='sample_'+uuid.uuid4().hex[:8]+'.mp4'
-        shutil.copy(os.path.join(D,'static','samples','sample_walk.mp4'),os.path.join(D,'orig',fn)); return fn
+        raise Exception('영상 생성 설정이 없어 아이 사진으로 영상을 만들지 않습니다')
 class XaiProvider:
     # xAI Grok Imagine image-to-video (docs.x.ai): POST /v1/videos/generations -> {request_id}; GET /v1/videos/{id} -> status pending|done|failed|expired, video.url, usage.cost_in_usd_ticks
     name='xai'; sample=0
@@ -120,19 +119,17 @@ class XaiProvider:
         try: return json.load(urllib.request.urlopen(r,timeout=60))
         except urllib.error.HTTPError as e: raise Exception(f'xAI {e.code}: '+e.read().decode()[:300])
     def _image(s,path):
-        # 출력 비율은 입력 사진 비율을 따름 -> 9:16 세로로 가운데 자르기
+        # 원본 비율을 유지한다. 이미지-영상은 입력 사진 비율을 따르므로 9:16으로 잘라 배경을 버리지 않는다.
         from PIL import Image
-        im=Image.open(path).convert('RGB'); w,h=im.size; t=9/16
-        if w/h>t: nw=int(h*t); im=im.crop(((w-nw)//2,0,(w-nw)//2+nw,h))
-        elif w/h<t-0.01: nh=int(w/t); im=im.crop((0,(h-nh)//2,w,(h-nh)//2+nh))
-        im.thumbnail((1080,1920)); bio=io.BytesIO(); im.save(bio,'JPEG',quality=90)
+        im=Image.open(path).convert('RGB')
+        im.thumbnail((1080,1920))
+        bio=io.BytesIO(); im.save(bio,'JPEG',quality=90)
         return 'data:image/jpeg;base64,'+base64.b64encode(bio.getvalue()).decode()
     def generate(s,photo_path,prompt):
         body={'model':s.MODEL,'prompt':prompt,'duration':s.DUR,'resolution':s.RES,'aspect_ratio':'9:16'}
         if photo_path and os.path.isfile(photo_path): body['image']={'url':s._image(photo_path)}
         if os.environ.get('XAI_MOCK'):
-            print('MOCK xai request',json.dumps({k:v for k,v in body.items() if k!='image'}),'image' in body,flush=True)
-            fn='mock_'+uuid.uuid4().hex[:8]+'.mp4'; shutil.copy(os.path.join(D,'static','samples','sample_walk.mp4'),os.path.join(D,'orig',fn)); s.last_cost=0; return fn
+            raise Exception('mock은 사용자 영상을 만들지 않습니다')
         rid=s._req('https://api.x.ai/v1/videos/generations',body)['request_id']
         for _ in range(180):
             time.sleep(5); r=s._req('https://api.x.ai/v1/videos/'+rid)
@@ -445,8 +442,10 @@ class H(http.server.SimpleHTTPRequestHandler):
                 if not s.can_view(pet): return s.js({'error':'비공개 별자리예요'},403)
                 if pet['example']: return s.js({'error':'예시 별자리는 영상을 만들 수 없어요. 내 아이 별자리를 만들어 주세요 🐾'},403)
                 style=b.get('style') if b.get('style') in PROMPTS else 'play'
-                exist=c.execute("select id,status,provider,sample,style from videos where pet_id=? and style=? and status!='error' order by id desc limit 1",(m[1],style)).fetchone()
-                if exist: return s.js({'id':exist['id'],'provider':exist['provider'],'sample':exist['sample'],'style':exist['style'],'status':exist['status'],'reused':1})
+                exist=c.execute("select id,status,provider,sample,style from videos where pet_id=? and style=? and status!='error' and coalesce(sample,0)=0 order by id desc limit 1",(m[1],style)).fetchone()
+                if exist: return s.js({'id':exist['id'],'provider':exist['provider'],'sample':0,'style':exist['style'],'status':exist['status'],'reused':1,'generated':True})
+                if not os.environ.get('XAI_API_KEY') or os.environ.get('XAI_MOCK'):
+                    return s.js({'error':'이 서버 프로세스에서는 아이 사진으로 산책 영상을 만들지 못했습니다. 샘플 영상은 재생하지 않아요.','provider':'unavailable','generated':False},503)
                 if c.execute("select count(*) from videos where pet_id=? and status!='error' and (preview is not null or status='running')",(m[1],)).fetchone()[0]>=FREE_GEN: return s.js({'error':'이 별자리의 무료 미리보기를 이미 사용했어요'},402)
                 day=time.strftime('%Y-%m-%d'); ip=(s.headers.get('X-Forwarded-For') or s.client_address[0]).split(',')[0].strip(); cid=str(b.get('cid') or '')[:40]
                 if c.execute('select count(*) from gen_log where day=? and (ip=? or (length(cid)>0 and cid=?))',(day,ip,cid)).fetchone()[0]>=1: return s.js({'error':'무료 미리보기는 하루에 한 번만 만들 수 있어요. 내일 다시 찾아와 주세요 🌙'},429)
