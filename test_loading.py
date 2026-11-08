@@ -114,6 +114,23 @@ class LoadingBehavior(unittest.TestCase):
         self.assertEqual(wrong, 403)
         self.assertNotIn('real_total', denied)
 
+    def test_seeded_examples_remain_stored_after_public_reads(self):
+        server.boot()
+        with server.db() as c:
+            before = [dict(r) for r in c.execute('select id,name,photo,letter,owner,ekey,visibility,example from pets where coalesce(example,0)!=0 order by id')]
+        self.assertGreaterEqual(len(before), 6)
+        js('/api/pets')
+        with server.db() as c:
+            after = [dict(r) for r in c.execute('select id,name,photo,letter,owner,ekey,visibility,example from pets where coalesce(example,0)!=0 order by id')]
+        self.assertEqual(after, before)
+        for row in after:
+            self.assertTrue(str(row['name']).startswith('[예시]'))
+            self.assertTrue(str(row['photo']).startswith('/static/samples/pet_'))
+            self.assertTrue(row['letter'])
+            self.assertTrue(row['owner'])
+            self.assertTrue(row['ekey'])
+            self.assertEqual(row['visibility'] or 'public', 'public')
+
     def test_slow_database_returns_json_instead_of_hanging(self):
         server.boot()
         sock = socket.socket()

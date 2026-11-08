@@ -256,11 +256,17 @@ const CONS=[
 {n:'사자자리',p:[[.9,.06],[.66,.04],[.5,.34],[.62,.62],[.12,.5],[.18,.92]],l:[[0,1],[1,2],[2,3],[3,5],[5,4],[4,2]]},
 {n:'전갈자리',p:[[.08,.04],[.28,.3],[.5,.18],[.66,.5],[.5,.86],[.82,.92],[.94,.62]],l:[[0,1],[1,2],[2,3],[3,4],[4,5],[5,6]]}];
 function consOf(k){const c=CONS[k%CONS.length],r=Math.floor(k/CONS.length);return {...c,t:c.n+(r?' '+(r+1):'')}}
+function constellationGroups(ps){
+  // Slots are a view over the public list, ordered by id. example=1 is the seeded sample flag, not a saved constellation assignment.
+  const list=[...ps].filter(p=>!p.example).sort((a,b)=>(+a.id)-(+b.id));
+  const groups=[];let k=0,i=0;
+  while(i<list.length){const c=consOf(k),g=list.slice(i,i+c.p.length);groups.push({c,g});i+=g.length;k++}
+  if(!groups.length||groups[groups.length-1].g.length===groups[groups.length-1].c.p.length)groups.push({c:consOf(groups.length),g:[]});
+  const cur=groups.length-1,done=cur,def=done&&!groups[cur].g.length?done-1:cur;
+  return {groups,cur,done,def};
+}
 let PZ=0,PZV=-1;function plaza(ps){const el=document.getElementById('plaza');if(!el)return;const id=++PZ;
-const list=[...ps].sort((a,b)=>a.id-b.id),groups=[];let k=0,i=0;
-while(i<list.length){const c=consOf(k),g=list.slice(i,i+c.p.length);groups.push({c,g});i+=g.length;k++}
-if(!groups.length||groups[groups.length-1].g.length===groups[groups.length-1].c.p.length)groups.push({c:consOf(groups.length),g:[]});
-const cur=groups.length-1,done=cur,def=done&&!groups[cur].g.length?done-1:cur,info=document.getElementById('pzinfo');
+const {groups,cur,done,def}=constellationGroups(ps),info=document.getElementById('pzinfo');
 const seen=+(localStorage.pzDone||0);let celebrate=done>seen&&done>0;localStorage.pzDone=done;
 function draw(gi,anim){if(id!==PZ)return;el.innerHTML='';const W=el.clientWidth,H=el.clientHeight;
 let s='';for(let q=0;q<36;q++){const x=(q*37%100),y=(q*53%90);s+=`<i class="st" style="left:${x}%;top:${y}%;animation-delay:${(q%7)*.45}s"></i>`}
