@@ -6,4 +6,5 @@ screens/
 .chk/
 *.log
 server.bak
+dist/
 .env
