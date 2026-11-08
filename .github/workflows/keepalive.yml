@@ -2,7 +2,8 @@ name: Keep Render alive
 
 on:
   schedule:
-    # Every 10 minutes. Render's free instance sleeps after ~15 minutes idle.
+    # Intended every 10 minutes. GitHub may delay or skip scheduled runs,
+    # so this does not by itself guarantee the instance stays under Render's idle window.
     - cron: "*/10 * * * *"
   workflow_dispatch:
 
@@ -11,27 +12,27 @@ permissions: {}
 jobs:
   ping:
     runs-on: ubuntu-latest
-    timeout-minutes: 6
+    timeout-minutes: 3
     steps:
-      - name: GET /api/pets
+      - name: Check process and pet list
         run: |
           set -euo pipefail
-          url="https://dasi-mannal-byeol.onrender.com/api/pets"
-          # --max-time is per transfer; --retry 3 is up to three more attempts.
-          # --fail makes HTTP 4xx/5xx a curl error so they are retried and fail the step.
-          code="$(curl --silent --show-error --fail \
-            --retry 3 \
-            --retry-all-errors \
-            --retry-delay 5 \
-            --max-time 60 \
-            --output /dev/null \
-            --write-out '%{http_code}' \
-            "$url")" || {
-            echo "request failed (HTTP ${code:-000})" >&2
-            exit 1
+          base="https://dasi-mannal-byeol.onrender.com"
+          # health: the process accepted the request. pets: the list the app paints on launch.
+          probe() {
+            local path="$1" max="$2" out code
+            out="$(curl --silent --show-error \
+              --retry 2 \
+              --retry-all-errors \
+              --retry-delay 2 \
+              --connect-timeout 10 \
+              --max-time "$max" \
+              --output /dev/null \
+              --write-out '%{http_code} %{time_starttransfer}' \
+              "$base$path" || true)"
+            echo "$path ${out:-000 0}"
+            code="${out%% *}"
+            [ "$code" = "200" ]
           }
-          echo "HTTP ${code}"
-          if [ "$code" != "200" ]; then
-            echo "expected HTTP 200 from ${url}" >&2
-            exit 1
-          fi
+          probe /api/health 20
+          probe /api/pets 20
