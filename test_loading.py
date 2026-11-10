@@ -161,6 +161,13 @@ class LoadingBehavior(unittest.TestCase):
         self.assertIn('no-store', cache)
         self.assertIn('업데이트', body)
         self.assertIn('2026.11.08', body)
+        self.assertIn('2026.11.10', body)
+        self.assertIn('dmb_pets_cache', body)
+        self.assertIn('fetchPetsRetry', body)
+        self.assertIn('id="homeStatus"', body)
+        self.assertIn('불러오는 중', body)
+        self.assertIn("async function home(){const cached=readPetsCache()", body)
+        self.assertNotIn("async function home(){let ps;try{ps=await api('/api/pets',null,12000)}", body)
         self.assertNotIn('정상화 완료', body)
 
     def test_failed_walk_can_retry_without_a_second_running_job(self):

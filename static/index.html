@@ -44,7 +44,7 @@ textarea{min-height:140px}.row{display:flex;gap:10px}.row>div{flex:1}
 .rit{margin-top:14px;padding:14px;border-radius:14px;background:rgba(255,255,255,.06);position:relative;overflow:hidden}.rit .rb{display:flex;gap:8px;margin-top:10px}.rit .rb button{flex:1;border:1px solid rgba(255,230,168,.3);background:rgba(0,0,0,.2);color:#f4ecdf;border-radius:14px;padding:12px 4px;font-size:13px;cursor:pointer;font-family:inherit}.rit .rb button.done{background:rgba(255,217,138,.2);border-color:#ffd98a;color:#ffe6a8}
 .fly{position:absolute;font-size:26px;pointer-events:none;animation:up 1.6s ease-out forwards}@keyframes up{to{transform:translateY(-110px) scale(1.4);opacity:0}}
 footer{max-width:560px;margin:0 auto;padding:0 18px 100px;font-size:11px;line-height:1.7;opacity:.6;text-align:center}
-.center{text-align:center}.err{color:#ffb3b3}
+.center{text-align:center}.err{color:#ffb3b3}.home-status{font-size:12px;text-align:center;opacity:.75;margin:0 0 8px;color:#ffe6a8;min-height:1em}
 </style><style>
 .ptitle{text-align:center;margin:6px 0 4px;font-size:19px;color:#ffe6a8;letter-spacing:.5px}
 .pzinfo{text-align:center;font-size:13px;margin:10px 0 0;opacity:.9}.pzinfo b{color:#ffe6a8}.pzinfo span{opacity:.7}.pzinfo a{color:#ffe6a8}
@@ -93,13 +93,32 @@ const fullUrl=u=>{const a=abs(u);return String(a).startsWith('http')?a:location.
 const api=(u,o,ms)=>{u=abs(u);const hd={'Content-Type':'application/json'},k=kOf(u);if(k)hd['X-Edit-Key']=k;if(window.__ADMIN_TOKEN&&String(u).includes('/api/admin/'))hd['X-Admin-Token']=window.__ADMIN_TOKEN;const ctrl=new AbortController();const timer=ms?setTimeout(()=>ctrl.abort(),ms):0;return fetch(u,Object.assign(o?{method:'POST',headers:hd,body:JSON.stringify(o)}:{headers:hd},{signal:ctrl.signal})).then(async r=>{const t=await r.text();try{return t?JSON.parse(t):{}}catch(e){const err=new Error('bad');err.status=r.status;throw err}}).finally(()=>{if(timer)clearTimeout(timer)})};
 function loadingHtml(){return '<div class="card center"><div class="orb">✦</div><p>불러오는 중이에요…</p></div>'}
 function errHtml(msg){return `<div class="card center"><p class="err">${esc(msg||'불러오지 못했어요.')}</p><button class="btn" onclick="route()">다시 시도</button></div>`}
+const PETS_CACHE_KEY='dmb_pets_cache';
+function readPetsCache(){try{const x=JSON.parse(localStorage.getItem(PETS_CACHE_KEY)||'');return Array.isArray(x&&x.pets)?x.pets:null}catch(e){return null}}
+function writePetsCache(ps){try{localStorage.setItem(PETS_CACHE_KEY,JSON.stringify({pets:ps,saved:Date.now()}))}catch(e){}}
+function setHomeStatus(t){const n=$('#homeStatus');if(n)n.textContent=t||''}
+function onHome(){const h=location.hash||'#/';return h==='#'||h==='#/'||h.startsWith('#/?')}
+async function fetchPetsRetry(){
+  const deadline=Date.now()+60000;let delay=0,last='별자리 목록을 불러오지 못했어요.';
+  while(Date.now()<=deadline){
+    if(delay)await new Promise(r=>setTimeout(r,delay));
+    try{
+      const ps=await api('/api/pets',null,15000);
+      if(Array.isArray(ps)){writePetsCache(ps);return ps}
+      last=(ps&&ps.error)||last;
+    }catch(e){last='별자리 목록을 불러오지 못했어요. 서버 응답이 지연되고 있어요.'}
+    delay=Math.min(delay?delay*2:2000,8000);
+  }
+  throw new Error(last);
+}
+
 const saveKey=(id,k)=>{KEYS[id]=k;localStorage.keys=JSON.stringify(KEYS);if(!MINE.includes(+id)){MINE.push(+id);localStorage.mine=JSON.stringify(MINE)}};
 const jo=(w,a,b)=>{const c=(w||'').charCodeAt(w.length-1);return w+((c>=0xAC00&&c<=0xD7A3&&(c-0xAC00)%28)?a:b)};
 const emo=s=>({'강아지':'🐶','고양이':'🐱','토끼':'🐰','햄스터':'🐹','새':'🐦'}[s]||'🐾');
 const fmt=d=>d?d.replace(/-/g,'.'):'';const ago=t=>new Date(t*1000).toLocaleDateString('ko-KR');
-async function home(){let ps;try{ps=await api('/api/pets',null,12000)}catch(e){app.innerHTML=errHtml('별자리 목록을 불러오지 못했어요. 서버 응답이 지연되고 있어요.');return}if(!Array.isArray(ps)){app.innerHTML=errHtml((ps&&ps.error)||'별자리 목록을 불러오지 못했어요.');return}app.innerHTML=`<h2 class="ptitle">무지개다리를 건넌 반려동물 추모공간</h2><div class="live"><span class="dot"></span>지금 <b id="onl">${LIVE.online||1}</b>명이 함께 있어요</div><div class="ticker"><span id="tk">별빛을 기다리고 있어요 ✦</span></div><div id="pzinfo" class="pzinfo"></div><div id="plaza" class="plaza"></div><div class="herobox"><div style="font-size:30px">🌙✨🐾</div><h2>우리 아이의 가장 행복했던 순간을<br>다시 만나요</h2><p>사진 한 장이면, 아이가 신나게 뛰놀다 품에 쏙 안기는 10초 영상이 돼요.</p></div><div class="center"><a class="btn" href="#/new">＋ 별자리 만들기</a><p style="font-size:13px;opacity:.8;margin:8px 0 0">슬픈 기억을 다시 보는 게 아니라,<br>우리 아이의 가장 행복했던 순간을 다시 만나요 🐾</p></div>
+function renderHome(ps,refreshing){app.innerHTML=`<h2 class="ptitle">무지개다리를 건넌 반려동물 추모공간</h2><p id="homeStatus" class="home-status">${refreshing?'불러오는 중':''}</p><div class="live"><span class="dot"></span>지금 <b id="onl">${LIVE.online||1}</b>명이 함께 있어요</div><div class="ticker"><span id="tk">별빛을 기다리고 있어요 ✦</span></div><div id="pzinfo" class="pzinfo"></div><div id="plaza" class="plaza"></div><div class="herobox"><div style="font-size:30px">🌙✨🐾</div><h2>우리 아이의 가장 행복했던 순간을<br>다시 만나요</h2><p>사진 한 장이면, 아이가 신나게 뛰놀다 품에 쏙 안기는 10초 영상이 돼요.</p></div><div class="center"><a class="btn" href="#/new">＋ 별자리 만들기</a><p style="font-size:13px;opacity:.8;margin:8px 0 0">슬픈 기억을 다시 보는 게 아니라,<br>우리 아이의 가장 행복했던 순간을 다시 만나요 🐾</p></div>
 ${ps.length?'':`<div class="card center" style="padding:28px 16px"><div style="font-size:40px">🌌</div><h3>아직 밤하늘에 별자리가 없어요</h3><p>첫 번째 별자리를 만들어 우리 아이를 기억해 주세요.</p><a class="btn" href="#/new">✨ 별자리 만들기</a></div>`}<div class="grid">${ps.map(p=>`<div class="locker" onclick="go('#/pet/${p.id}')"><span class="no">별자리 No.${String(p.id).padStart(3,'0')}</span>${p.example?'<span class="tag">예시</span>':''}
-${p.photo?`<img src="${abs(p.photo)}" alt="">`:`<div class="ph">${emo(p.species)}</div>`}<b>${esc(p.name)}</b><small>${fmt(p.birth)}${p.birth||p.passed?' ~ ':''}${fmt(p.passed)}</small><br><small>🕯 ${p.candles}</small></div>`).join('')}</div>`;plaza(ps)}
+${p.photo?`<img src="${abs(p.photo)}" alt="">`:`<div class="ph">${emo(p.species)}</div>`}<b>${esc(p.name)}</b><small>${fmt(p.birth)}${p.birth||p.passed?' ~ ':''}${fmt(p.passed)}</small><br><small>🕯 ${p.candles}</small></div>`).join('')}</div>`;plaza(ps)}async function home(){const cached=readPetsCache();if(cached)renderHome(cached,true);else app.innerHTML=loadingHtml();try{const ps=await fetchPetsRetry();if(!onHome())return;renderHome(ps,false)}catch(e){if(!onHome())return;if(cached){setHomeStatus('');return}app.innerHTML=errHtml(e.message||'별자리 목록을 불러오지 못했어요.')}}
 function form(E){app.innerHTML=`<div class="card"><h2 style="margin:0">${E?'별자리 수정하기':'별자리 만들기'}</h2>
 <label>아이 이름 *</label><input id="f_name" maxlength="40" placeholder="예: 콩이">
 <label>종류</label><select id="f_species"><option>강아지</option><option>고양이</option><option>토끼</option><option>햄스터</option><option>새</option><option>기타</option></select>
@@ -171,7 +190,7 @@ ${x.photo?`<img src="${abs(x.photo)}" style="margin-top:8px">`:''}<p>${esc(x.bod
 async function react(id,r,b){const k='rx'+id+r;if(localStorage[k])return;localStorage[k]=1;const o=await api(`/api/posts/${id}/react`,{r});b.querySelector('span').textContent=o[r];b.style.background='#ffd98a33';burst()}
 async function report(id){if(!confirm('이 글을 신고할까요? 신고가 쌓이면 숨겨져요.'))return;await api(`/api/posts/${id}/report`,{});alert('신고가 접수되었어요. 고마워요.')}
 async function reply(id){const i=$('#ri'+id);if(!i.value.trim())return;const r=await api(`/api/posts/${id}/reply`,{body:i.value,nick:localStorage.nick||''});if(r.error)return alert(r.error);route()}
-async function board(kind){const q=new URLSearchParams(location.hash.split('?')[1]||'');let pets;try{pets=await api('/api/pets',null,12000)}catch(e){app.innerHTML=errHtml('목록을 불러오지 못했어요. 서버 응답이 지연되고 있어요.');return}if(!Array.isArray(pets)){app.innerHTML=errHtml((pets&&pets.error)||'목록을 불러오지 못했어요.');return}const need=q.get('need')==='1';const pre=q.get('pet')||MINE[MINE.length-1]||'';
+async function board(kind){const q=new URLSearchParams(location.hash.split('?')[1]||'');let pets=readPetsCache();if(!pets)app.innerHTML=loadingHtml();try{pets=await fetchPetsRetry()}catch(e){if(!pets){app.innerHTML=errHtml(e.message||'목록을 불러오지 못했어요.');return}}const need=q.get('need')==='1';const pre=q.get('pet')||MINE[MINE.length-1]||'';
 const opts=pets.map(p=>`<option value="${p.id}" ${String(p.id)===String(pre)?'selected':''}>${esc(p.name)}</option>`).join('');
 app.innerHTML=kind==='comfort'?`<h2 style="margin:4px 0">🤍 위로·응원</h2><small style="opacity:.75">같은 아픔을 아는 사람들이 서로의 곁이 되어 줘요</small>
 <div class="card"><input id="pn" maxlength="20" placeholder="닉네임 (선택)" value="${esc(localStorage.nick||'')}"><textarea id="pb" style="min-height:90px;margin-top:8px" maxlength="600" placeholder="오늘의 마음, 또는 누군가에게 건네고 싶은 응원을 적어 주세요"></textarea>
@@ -244,7 +263,7 @@ if(v.status==='running'){say('산책 영상을 만들고 있어요');return setT
 walkLock=0;if(v.sample){say('이 파일은 아이 사진으로 만든 영상이 아니에요. 재생하지 않습니다.');return}
 if(v.status==='error'){say('영상을 만들지 못했어요. 다시 시도해 주세요.');retry();return}
 say(j.reused?'이미 만든 산책 영상을 재생해요.':'');playWalk(w,v)};poll()}catch(e){say('서버 응답이 지연되고 있어요.');retry();walkLock=0}}
-function notesPage(){const NOTES=[{ver:'2026.11.08',date:'2026년 11월 8일',items:['밤하늘 북두칠성에는 직접 등록한 별만 들어가요. 예시 별은 하늘 칸에서 빠졌어요.','별이 적어도 북두칠성 모양이 선으로 보여요. 빈자리는 옅은 점으로 남아요.','화면을 불러오지 못하면 다시 시도할 수 있어요.','산책하기는 그림이 움직이는 화면 대신, 올린 사진의 배경을 유지한 채 걷는 영상을 요청해요. 영상이 만들어지지 않으면 다른 영상을 대신 보여 주지 않아요.']}];app.innerHTML=`<a class="btn ghost" href="#/">← 별자리</a><h2 style="margin:14px 0 4px">업데이트</h2><p style="font-size:14px;line-height:1.6;opacity:.8">앱에서 바뀐 점을 날짜순으로 모았어요. 가장 최근이 위에 있어요.</p>`+NOTES.map(n=>`<article class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><b style="color:#ffe6a8">${esc(n.date)}</b><span class="badge">${esc(n.ver)}</span></div><ul class="notes">${n.items.map(i=>`<li>${esc(i)}</li>`).join('')}</ul></article>`).join('')}
+function notesPage(){const NOTES=[{ver:'2026.11.10',date:'2026년 11월 10일',items:['서버가 잠시 잠에서 깨는 동안에도, 마지막으로 본 별자리를 바로 보여 주고 조용히 다시 불러와요.']},{ver:'2026.11.08',date:'2026년 11월 8일',items:['밤하늘 북두칠성에는 직접 등록한 별만 들어가요. 예시 별은 하늘 칸에서 빠졌어요.','별이 적어도 북두칠성 모양이 선으로 보여요. 빈자리는 옅은 점으로 남아요.','화면을 불러오지 못하면 다시 시도할 수 있어요.','산책하기는 그림이 움직이는 화면 대신, 올린 사진의 배경을 유지한 채 걷는 영상을 요청해요. 영상이 만들어지지 않으면 다른 영상을 대신 보여 주지 않아요.']}];app.innerHTML=`<a class="btn ghost" href="#/">← 별자리</a><h2 style="margin:14px 0 4px">업데이트</h2><p style="font-size:14px;line-height:1.6;opacity:.8">앱에서 바뀐 점을 날짜순으로 모았어요. 가장 최근이 위에 있어요.</p>`+NOTES.map(n=>`<article class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><b style="color:#ffe6a8">${esc(n.date)}</b><span class="badge">${esc(n.ver)}</span></div><ul class="notes">${n.items.map(i=>`<li>${esc(i)}</li>`).join('')}</ul></article>`).join('')}
 function adminPage(){window.__ADMIN_TOKEN=sessionStorage.getItem('adminToken')||'';app.innerHTML=`<div class="card"><h2 style="margin-top:0">신규 별자리 확인</h2><p style="font-size:13px;line-height:1.6;opacity:.85">최근 등록 수만 보여요. 이름, 사진, 편지, 보호자, 관리 키는 이 화면에 나오지 않아요.</p><label>관리자 토큰</label><input id="atok" type="password" autocomplete="current-password"><p id="aerr" class="err"></p><button class="btn" id="ago">집계 보기</button><div id="asum"></div></div>`;
 const num=v=>Number.isFinite(+v)?+v:'?';const run=async()=>{const tok=$('#atok').value.trim();sessionStorage.setItem('adminToken',tok);window.__ADMIN_TOKEN=tok;$('#aerr').textContent='';$('#asum').innerHTML=loadingHtml();let s;try{s=await api('/api/admin/summary',null,12000)}catch(e){$('#asum').innerHTML='';$('#aerr').textContent='서버 응답이 지연되고 있어요. 잠시 후 다시 시도해 주세요.';return}if(!s||s.error){$('#asum').innerHTML='';$('#aerr').textContent=!s?'집계를 불러오지 못했어요.':s.error==='forbidden'?'토큰이 맞지 않아요.':s.error;return}const when=s.newest_real_created?new Date(s.newest_real_created*1000).toLocaleString('ko-KR'):'아직 없어요';$('#asum').innerHTML=`<div class="cmt">실제 별자리 <b>${num(s.real_total)}</b> · 예시 <b>${num(s.example_total)}</b></div><div class="cmt">최근 24시간 <b>${num(s.real_new_24h)}</b> · 최근 7일 <b>${num(s.real_new_7d)}</b></div><div class="cmt">전체공개 ${num(s.real_public)} · 링크공개 ${num(s.real_link)} · 비공개 ${num(s.real_private)}</div><div class="cmt">가장 최근 등록 ${esc(when)}</div><p style="font-size:12px;opacity:.75;line-height:1.6">광장과 별자리 목록에는 전체공개만 나와요. 링크공개와 비공개는 여기 숫자로만 확인할 수 있어요.</p>`};
 $('#atok').value=window.__ADMIN_TOKEN;$('#ago').onclick=run;if(window.__ADMIN_TOKEN)run()}
